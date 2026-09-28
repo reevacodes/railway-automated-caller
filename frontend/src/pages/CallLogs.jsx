@@ -40,6 +40,8 @@ export default function CallLogs() {
 
   useEffect(() => {
     fetchLogs();
+    const interval = setInterval(fetchLogs, 2500);
+    return () => clearInterval(interval);
   }, []);
 
   const handleSelectEmployee = (empId) => {
@@ -76,20 +78,6 @@ export default function CallLogs() {
     }
   };
 
-  const handleSimulateDtmf = async (callLogId, digits) => {
-    setSimulatingId(callLogId);
-    try {
-      const res = await simulateDtmfResponse({ call_log_id: callLogId, digits });
-      if (res.success) {
-        fetchLogs();
-      }
-    } catch (err) {
-      console.error('DTMF Sim error:', err);
-    } finally {
-      setSimulatingId(null);
-    }
-  };
-
   const getConfirmationBadge = (log) => {
     const status = (log.confirmation_status || log.dtmf_input || '').toLowerCase();
     if (status.includes('confirm') || log.dtmf_input === '1') {
@@ -115,7 +103,7 @@ export default function CallLogs() {
         <div>
           <h2 style={{ fontSize: '1.2rem', fontWeight: 600 }}>Call Logs & IVR Confirmation Desk</h2>
           <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-            Real-time telephony voice calls with interactive DTMF keypress response handling (Press 1 to Confirm / Press 2 for Assistance).
+            Real-time telephony voice calls with instant DTMF keypress response logs (Live Sync every 2.5s).
           </p>
         </div>
         <button className="btn btn-secondary" onClick={fetchLogs} disabled={loading}>
@@ -235,9 +223,9 @@ export default function CallLogs() {
       {/* Call History Table (Section 10 Requirement) */}
       <div className="table-card">
         <div className="table-header">
-          <h2>Telephony Call History & DTMF Webhook Logs</h2>
+          <h2>Telephony Call History & Instant IVR Webhook Logs</h2>
           <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-            Total Calls: {logs.length}
+            Total Calls: {logs.length} (Live Sync Active)
           </span>
         </div>
 
@@ -252,13 +240,12 @@ export default function CallLogs() {
               <th>IVR DTMF Confirmation</th>
               <th>Spoken Voice Message</th>
               <th>Time</th>
-              <th>Keypress Simulation</th>
             </tr>
           </thead>
           <tbody>
             {logs.length === 0 ? (
               <tr>
-                <td colSpan="9" style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+                <td colSpan="8" style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
                   No call logs recorded yet. Use the Test Call Panel above or schedule a duty reminder.
                 </td>
               </tr>
@@ -284,34 +271,12 @@ export default function CallLogs() {
                   </td>
                   <td>{getConfirmationBadge(log)}</td>
                   <td>
-                    <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', maxWidth: '240px' }}>
+                    <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', maxWidth: '280px' }}>
                       "{log.voice_message}"
                     </div>
                   </td>
                   <td>
                     <div style={{ fontSize: '0.78rem' }}>{log.created_at}</div>
-                  </td>
-                  <td>
-                    <div style={{ display: 'flex', gap: '0.35rem' }}>
-                      <button
-                        className="btn btn-sm"
-                        style={{ backgroundColor: '#10b981', color: '#fff', padding: '0.2rem 0.5rem', fontSize: '0.72rem' }}
-                        onClick={() => handleSimulateDtmf(log.id, '1')}
-                        disabled={simulatingId === log.id}
-                        title="Simulate user pressing 1 on mobile keypad"
-                      >
-                        Press 1 (Confirm)
-                      </button>
-                      <button
-                        className="btn btn-sm"
-                        style={{ backgroundColor: '#ef4444', color: '#fff', padding: '0.2rem 0.5rem', fontSize: '0.72rem' }}
-                        onClick={() => handleSimulateDtmf(log.id, '2')}
-                        disabled={simulatingId === log.id}
-                        title="Simulate user pressing 2 on mobile keypad"
-                      >
-                        Press 2 (Assist)
-                      </button>
-                    </div>
                   </td>
                 </tr>
               ))
