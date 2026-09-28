@@ -8,9 +8,38 @@ import Duties from './pages/Duties';
 import CallLogs from './pages/CallLogs';
 import Settings from './pages/Settings';
 
+const getInitialTab = () => {
+  const hash = window.location.hash.replace('#', '').trim().toLowerCase();
+  const validTabs = ['dashboard', 'employees', 'duties', 'calls', 'settings'];
+  if (validTabs.includes(hash)) return hash;
+  const stored = localStorage.getItem('railway_active_tab');
+  if (validTabs.includes(stored)) return stored;
+  return 'dashboard';
+};
+
 export default function App() {
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [activeTab, setActiveTab] = useState(getInitialTab);
   const [kolkataTime, setKolkataTime] = useState('');
+
+  const changeTab = (tab) => {
+    setActiveTab(tab);
+    window.location.hash = tab;
+    localStorage.setItem('railway_active_tab', tab);
+  };
+
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.replace('#', '').trim().toLowerCase();
+      const validTabs = ['dashboard', 'employees', 'duties', 'calls', 'settings'];
+      if (validTabs.includes(hash)) {
+        setActiveTab(hash);
+        localStorage.setItem('railway_active_tab', hash);
+      }
+    };
+
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
 
   useEffect(() => {
     const updateTime = () => {
@@ -26,7 +55,7 @@ export default function App() {
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard':
-        return <Dashboard onNavigateToTest={() => setActiveTab('calls')} />;
+        return <Dashboard onNavigateToTest={() => changeTab('calls')} />;
       case 'employees':
         return <Employees />;
       case 'duties':
@@ -36,7 +65,7 @@ export default function App() {
       case 'settings':
         return <Settings />;
       default:
-        return <Dashboard onNavigateToTest={() => setActiveTab('calls')} />;
+        return <Dashboard onNavigateToTest={() => changeTab('calls')} />;
     }
   };
 
@@ -71,7 +100,7 @@ export default function App() {
           <li className="nav-item">
             <button
               className={activeTab === 'dashboard' ? 'active' : ''}
-              onClick={() => setActiveTab('dashboard')}
+              onClick={() => changeTab('dashboard')}
             >
               <LayoutDashboard size={17} />
               Control Dashboard
@@ -81,7 +110,7 @@ export default function App() {
           <li className="nav-item">
             <button
               className={activeTab === 'employees' ? 'active' : ''}
-              onClick={() => setActiveTab('employees')}
+              onClick={() => changeTab('employees')}
             >
               <Users size={17} />
               Employee Roster
@@ -91,7 +120,7 @@ export default function App() {
           <li className="nav-item">
             <button
               className={activeTab === 'duties' ? 'active' : ''}
-              onClick={() => setActiveTab('duties')}
+              onClick={() => changeTab('duties')}
             >
               <Calendar size={17} />
               Duty Schedule
@@ -101,7 +130,7 @@ export default function App() {
           <li className="nav-item">
             <button
               className={activeTab === 'calls' ? 'active' : ''}
-              onClick={() => setActiveTab('calls')}
+              onClick={() => changeTab('calls')}
             >
               <PhoneCall size={17} />
               Call Logs & Test
@@ -111,7 +140,7 @@ export default function App() {
           <li className="nav-item">
             <button
               className={activeTab === 'settings' ? 'active' : ''}
-              onClick={() => setActiveTab('settings')}
+              onClick={() => changeTab('settings')}
             >
               <SettingsIcon size={17} />
               System Config

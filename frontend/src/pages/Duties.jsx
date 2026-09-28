@@ -42,6 +42,8 @@ export default function Duties() {
 
   useEffect(() => {
     loadData();
+    const interval = setInterval(loadData, 1500);
+    return () => clearInterval(interval);
   }, []);
 
   // Calculate preview reminder time on the fly
@@ -97,8 +99,9 @@ export default function Duties() {
         reporting_time: reportingTime
       });
 
-      if (res.success) {
-        setActionSuccess(`Duty created successfully! Reminder set for ${res.data.reminder_time}`);
+      if (res.success && res.data) {
+        setActionSuccess(`Duty created successfully for ${res.data.employee_name || selectedEmpId}! Reminder scheduled for ${res.data.reminder_time}`);
+        setDuties(prev => [res.data, ...prev.filter(d => d.id !== res.data.id)]);
         loadData();
       } else {
         setFormError(res.error || 'Failed to create duty');

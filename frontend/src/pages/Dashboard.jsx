@@ -35,7 +35,7 @@ export default function Dashboard({ onNavigateToTest }) {
 
   useEffect(() => {
     loadDashboardData();
-    const interval = setInterval(loadDashboardData, 2500);
+    const interval = setInterval(loadDashboardData, 1500);
     return () => clearInterval(interval);
   }, []);
 

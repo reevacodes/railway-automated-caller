@@ -40,7 +40,7 @@ export default function CallLogs() {
 
   useEffect(() => {
     fetchLogs();
-    const interval = setInterval(fetchLogs, 2500);
+    const interval = setInterval(fetchLogs, 1500);
     return () => clearInterval(interval);
   }, []);
 
