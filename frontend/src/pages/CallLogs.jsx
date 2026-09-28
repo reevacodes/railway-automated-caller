@@ -101,9 +101,9 @@ export default function CallLogs() {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
         <div>
-          <h2 style={{ fontSize: '1.2rem', fontWeight: 600 }}>Call Logs & IVR Confirmation Desk</h2>
+          <h2 style={{ fontSize: '1.2rem', fontWeight: 600 }}>Call Logs & IVR Keypress Responses</h2>
           <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-            Real-time telephony voice calls with instant DTMF keypress response logs (Live Sync every 2.5s).
+            History of automated duty voice call notifications and employee response keypress logs.
           </p>
         </div>
         <button className="btn btn-secondary" onClick={fetchLogs} disabled={loading}>
@@ -112,28 +112,28 @@ export default function CallLogs() {
         </button>
       </div>
 
-      {/* Section 7 Test Call Panel */}
+      {/* Manual Call Dispatch Panel */}
       <div style={{
         backgroundColor: 'var(--bg-card)',
         border: '1px solid var(--border-color)',
         borderRadius: 'var(--radius-lg)',
         padding: '1.5rem',
         marginBottom: '2rem',
-        boxShadow: 'var(--shadow-md)'
+        boxShadow: 'var(--shadow-sm)'
       }}>
         <div style={{ marginBottom: '1.25rem' }}>
           <h3 style={{ fontSize: '1.05rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <PhoneCall size={20} color="#3b82f6" />
-            Interactive Test Call Panel
+            <PhoneCall size={18} color="var(--railway-blue)" />
+            Manual Call Dispatch
           </h3>
           <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
-            To test with your own real Indian mobile number, type your number in the phone field below and click <b>[ Initiate Test Call ]</b>. When picked up, press 1 on your mobile keypad to confirm.
+            Dispatch an immediate voice call notification to an employee for verification or manual duty alerts.
           </p>
         </div>
 
         <form onSubmit={handleTestCallSubmit} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.15rem' }}>
           <div className="form-group" style={{ marginBottom: 0 }}>
-            <label>Employee Context</label>
+            <label>Employee Staff</label>
             <select
               className="form-select"
               value={selectedEmpId}
@@ -148,19 +148,19 @@ export default function CallLogs() {
           </div>
 
           <div className="form-group" style={{ marginBottom: 0 }}>
-            <label>Target Phone Number for Test Call *</label>
+            <label>Target Phone Number *</label>
             <input
               type="text"
               className="form-input"
               required
-              placeholder="+91XXXXXXXXXX"
+              placeholder="+919876543210"
               value={targetPhone}
               onChange={(e) => setTargetPhone(e.target.value)}
             />
           </div>
 
           <div className="form-group" style={{ marginBottom: 0 }}>
-            <label>Spoken Duty Time *</label>
+            <label>Duty Time *</label>
             <input
               type="text"
               className="form-input"
@@ -173,7 +173,7 @@ export default function CallLogs() {
           <div style={{ display: 'flex', alignItems: 'flex-end' }}>
             <button type="submit" className="btn btn-primary" style={{ width: '100%', height: '42px' }} disabled={isCalling}>
               <Send size={15} />
-              {isCalling ? 'Calling Telephony Provider...' : 'Initiate Test Call'}
+              {isCalling ? 'Dialing...' : 'Dispatch Call Now'}
             </button>
           </div>
         </form>
@@ -182,33 +182,30 @@ export default function CallLogs() {
         {callResult && (
           <div style={{
             marginTop: '1.25rem',
-            padding: '1rem',
+            padding: '0.85rem 1rem',
             borderRadius: 'var(--radius-md)',
             backgroundColor: 'rgba(16, 185, 129, 0.12)',
             border: '1px solid rgba(16, 185, 129, 0.3)',
-            color: '#34d399',
-            fontSize: '0.85rem'
+            color: '#15803d',
+            fontSize: '0.85rem',
+            fontWeight: 600,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem'
           }}>
-            <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.4rem' }}>
-              <CheckCircle2 size={18} />
-              {callResult.message}
-            </div>
-            <div style={{ fontSize: '0.8rem', color: '#a7f3d0' }}>
-              • Provider: <b>{callResult.telephonyDetails?.provider}</b><br />
-              • Provider Call SID: <code>{callResult.telephonyDetails?.providerCallId}</code><br />
-              • Initial Status: <b>{callResult.telephonyDetails?.status}</b>
-            </div>
+            <CheckCircle2 size={18} color="#15803d" />
+            {callResult.message || 'Call successfully dispatched.'}
           </div>
         )}
 
         {callError && (
           <div style={{
             marginTop: '1.25rem',
-            padding: '1rem',
+            padding: '0.85rem 1rem',
             borderRadius: 'var(--radius-md)',
             backgroundColor: 'rgba(239, 68, 68, 0.15)',
             border: '1px solid rgba(239, 68, 68, 0.3)',
-            color: '#f87171',
+            color: '#b91c1c',
             fontSize: '0.85rem',
             display: 'flex',
             alignItems: 'center',
@@ -220,12 +217,12 @@ export default function CallLogs() {
         )}
       </div>
 
-      {/* Call History Table (Section 10 Requirement) */}
+      {/* Call History Table */}
       <div className="table-card">
         <div className="table-header">
-          <h2>Telephony Call History & Instant IVR Webhook Logs</h2>
+          <h2>Call Logs & IVR Keypress Responses</h2>
           <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-            Total Calls: {logs.length} (Live Sync Active)
+            Total Calls: {logs.length}
           </span>
         </div>
 
@@ -237,7 +234,7 @@ export default function CallLogs() {
               <th>Employee</th>
               <th>Phone Number</th>
               <th>Status</th>
-              <th>IVR DTMF Confirmation</th>
+              <th>IVR Keypress Response</th>
               <th>Spoken Voice Message</th>
               <th>Time</th>
             </tr>
@@ -246,7 +243,7 @@ export default function CallLogs() {
             {logs.length === 0 ? (
               <tr>
                 <td colSpan="8" style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
-                  No call logs recorded yet. Use the Test Call Panel above or schedule a duty reminder.
+                  No call logs recorded yet.
                 </td>
               </tr>
             ) : (
@@ -255,15 +252,15 @@ export default function CallLogs() {
                   <td>#{log.id}</td>
                   <td>
                     {log.call_type === 'test_call' ? (
-                      <span className="badge-status status-calling">Test Call</span>
+                      <span className="badge-status status-calling">Manual Call</span>
                     ) : (
-                      <span className="badge-status status-completed">Scheduled</span>
+                      <span className="badge-status status-completed">Automated</span>
                     )}
                   </td>
                   <td>
                     <div style={{ fontWeight: 600 }}>{log.employee_name || log.employee_id}</div>
                   </td>
-                  <td><code>{log.phone_number}</code></td>
+                  <td><b>{log.phone_number}</b></td>
                   <td>
                     <span className={`badge-status status-${(log.status || 'initiated').toLowerCase()}`}>
                       {log.status}

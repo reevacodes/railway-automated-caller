@@ -75,9 +75,9 @@ export default function App() {
     switch (activeTab) {
       case 'dashboard': return { title: 'OPERATIONS CONTROL DASHBOARD', sub: 'Divisional Automated Crew Duty Reminder & Call Dispatch Desk' };
       case 'employees': return { title: 'EMPLOYEE DIRECTORY', sub: 'Department Staff Records & Communication Contacts' };
-      case 'duties': return { title: 'DUTY ROSTER & REMINDER SCHEDULER', sub: 'Automated 30-Minute Reporting Time Call Dispatch' };
-      case 'calls': return { title: 'TELEPHONY CALL LOGS & TEST DESK', sub: 'Exotel Voice Reminder Records & Manual Test Call Verification' };
-      case 'settings': return { title: 'SYSTEM & PROVIDER CONFIGURATION', sub: 'Exotel Telephony Parameters & Operating Environment' };
+      case 'duties': return { title: 'DUTY ROSTER & REMINDER SCHEDULER', sub: 'Automated Reporting Time Call Dispatch' };
+      case 'calls': return { title: 'CALL LOGS & RESPONSE DESK', sub: 'Voice Reminder Records & Manual Call Dispatch' };
+      case 'settings': return { title: 'SYSTEM CONFIGURATION', sub: 'Operational Parameters & Telephony Settings' };
       default: return { title: 'OPERATIONS CONTROL DASHBOARD', sub: '' };
     }
   };
@@ -150,7 +150,7 @@ export default function App() {
               onClick={() => changeTab('calls')}
             >
               <PhoneCall size={17} />
-              Call Logs & Test
+              Call Logs & Dispatch
             </button>
           </li>
 
@@ -160,15 +160,14 @@ export default function App() {
               onClick={() => changeTab('settings')}
             >
               <SettingsIcon size={17} />
-              System Config
+              System Settings
             </button>
           </li>
         </ul>
 
         <div className="sidebar-footer">
           <div style={{ fontWeight: 700, color: '#ffffff' }}>Operating Department</div>
-          <div>Automated Duty Reminder MVP</div>
-          <div style={{ marginTop: '6px', color: 'var(--railway-gold-light)' }}>Telephony: Exotel</div>
+          <div>Automated Duty Reminder System</div>
         </div>
       </aside>
 
@@ -181,9 +180,9 @@ export default function App() {
           </div>
 
           <div className="top-badges">
-            <span className="badge badge-demo">
-              <ShieldCheck size={13} />
-              PROTOTYPE / DEMO V1
+            <span className="badge" style={{ backgroundColor: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0' }}>
+              <ShieldCheck size={13} color="#15803d" />
+              SYSTEM ONLINE
             </span>
 
             <span className="badge badge-tz">

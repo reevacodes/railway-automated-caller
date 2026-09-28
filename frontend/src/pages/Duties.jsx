@@ -140,7 +140,7 @@ export default function Duties() {
         <div>
           <h2 style={{ fontSize: '1.2rem', fontWeight: 600 }}>Duty Scheduling & Reminders</h2>
           <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-            System automatically calculates <code>reminder_time = reporting_time - 30 mins</code> in <code>Asia/Kolkata</code>.
+            Assign employee duty reporting schedules. Voice call reminders trigger automatically 30 minutes prior.
           </p>
         </div>
         <button className="btn btn-secondary" onClick={loadData} disabled={loading}>
@@ -176,10 +176,6 @@ export default function Duties() {
             <CalendarPlus size={18} color="#60a5fa" />
             Schedule New Employee Duty
           </h3>
-          <button className="btn btn-sm btn-secondary" onClick={setQuickTestTimer}>
-            <Sparkles size={14} color="#f59e0b" />
-            Set Quick Test Duty (Reminder in 1 min)
-          </button>
         </div>
 
         {formError && (
@@ -217,7 +213,7 @@ export default function Duties() {
           </div>
 
           <div className="form-group" style={{ marginBottom: 0 }}>
-            <label>Reporting / Duty Time (24h or HH:mm) *</label>
+            <label>Reporting / Duty Time *</label>
             <input
               type="time"
               className="form-input"
@@ -234,13 +230,13 @@ export default function Duties() {
           </div>
         </form>
 
-        {/* Automatic Calculation Preview Box (Section 4 Requirement) */}
+        {/* Automatic Calculation Preview Box */}
         {preview && (
           <div style={{
             marginTop: '1.25rem',
-            padding: '0.85rem 1.15rem',
-            backgroundColor: 'rgba(15, 23, 42, 0.7)',
-            border: '1px solid var(--border-color)',
+            padding: '0.75rem 1.15rem',
+            backgroundColor: 'var(--bg-subtle)',
+            border: '1px solid var(--border-light)',
             borderRadius: 'var(--radius-md)',
             display: 'flex',
             alignItems: 'center',
@@ -248,15 +244,15 @@ export default function Duties() {
             fontSize: '0.85rem'
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-              <Clock size={18} color="#fbbf24" />
-              <span>
-                Calculated Duty Time: <b>{preview.dutyFormatted}</b>
+              <Clock size={16} color="var(--railway-navy)" />
+              <span style={{ color: 'var(--text-dark)', fontWeight: 600 }}>
+                Duty Time: {preview.dutyFormatted}
               </span>
             </div>
             <div>
-              <span style={{ color: 'var(--text-muted)' }}>Auto Reminder (-30 mins): </span>
-              <span style={{ color: '#fbbf24', fontWeight: 700, backgroundColor: 'rgba(245, 158, 11, 0.15)', padding: '0.25rem 0.6rem', borderRadius: 'var(--radius-sm)' }}>
-                {preview.reminderFull} ({preview.reminderFormatted})
+              <span style={{ color: 'var(--text-muted)' }}>Automated Voice Call Reminder: </span>
+              <span style={{ color: '#b45309', fontWeight: 700, backgroundColor: '#fffbe3', padding: '0.2rem 0.6rem', borderRadius: 'var(--radius-sm)', border: '1px solid #fde68a' }}>
+                {preview.reminderFormatted} (30m prior)
               </span>
             </div>
           </div>
@@ -278,7 +274,7 @@ export default function Duties() {
               <th>Date</th>
               <th>Employee</th>
               <th>Reporting Time</th>
-              <th>Reminder Time (-30m)</th>
+              <th>Reminder Time</th>
               <th>Reminder Status</th>
               <th>Call Status</th>
               <th>Actions</th>
@@ -294,16 +290,16 @@ export default function Duties() {
             ) : (
               duties.map((d) => (
                 <tr key={d.id}>
-                  <td><code>{d.duty_date}</code></td>
+                  <td><b>{d.duty_date}</b></td>
                   <td>
                     <div style={{ fontWeight: 600 }}>{d.employee_name}</div>
                     <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{d.employee_id} • {d.employee_department}</div>
                   </td>
                   <td>
-                    <span style={{ fontWeight: 600, color: '#60a5fa' }}>{d.reporting_time}</span>
+                    <span style={{ fontWeight: 600, color: 'var(--railway-navy)' }}>{d.reporting_time}</span>
                   </td>
                   <td>
-                    <span style={{ fontWeight: 600, color: '#fbbf24' }}>{d.reminder_time}</span>
+                    <span style={{ fontWeight: 600, color: '#b45309' }}>{d.reminder_time}</span>
                   </td>
                   <td>
                     <span className={`badge-status status-${(d.reminder_status || 'pending').toLowerCase()}`}>

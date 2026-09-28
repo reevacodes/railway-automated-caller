@@ -176,7 +176,7 @@ export default function Employees() {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
         <div>
-          <h2 style={{ fontSize: '1.2rem', fontWeight: 600 }}>Employee Directory (8–10 Railway Staff)</h2>
+          <h2 style={{ fontSize: '1.2rem', fontWeight: 600 }}>Employee Directory</h2>
           <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
             Manage staff profiles and telephone notification contacts.
           </p>
@@ -342,7 +342,7 @@ export default function Employees() {
               </div>
 
               <div className="form-group">
-                <label>Phone Number (with Country Code) *</label>
+                <label>Phone Number *</label>
                 <input
                   type="text"
                   className="form-input"
@@ -351,9 +351,6 @@ export default function Employees() {
                   value={formData.phone_number}
                   onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
                 />
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                  Use +91 prefix for Indian mobile numbers.
-                </span>
               </div>
 
               <div className="form-group">
@@ -466,29 +463,25 @@ export default function Employees() {
         </div>
       )}
 
-      {/* Quick Test Call Modal (Section 7) */}
+      {/* Quick Call Modal */}
       {isTestCallModalOpen && selectedEmp && (
         <div className="modal-overlay">
           <div className="modal-card">
             <div className="modal-header">
-              <h3>Initiate Test Call to {selectedEmp.name}</h3>
+              <h3>Initiate Call to {selectedEmp.name}</h3>
               <button onClick={() => setIsTestCallModalOpen(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
                 <X size={18} />
               </button>
             </div>
 
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
-              You can override the phone number below with your <b>real Indian mobile number</b> for live testing.
-            </p>
-
-            <form onSubmit={handleTestCallSubmit}>
+            <form onSubmit={handleTestCallSubmit} style={{ marginTop: '0.5rem' }}>
               <div className="form-group">
                 <label>Employee</label>
                 <input type="text" className="form-input" disabled value={`${selectedEmp.name} (${selectedEmp.employee_id})`} />
               </div>
 
               <div className="form-group">
-                <label>Target Phone Number for Test *</label>
+                <label>Target Phone Number *</label>
                 <input
                   type="text"
                   className="form-input"
@@ -500,7 +493,7 @@ export default function Employees() {
               </div>
 
               <div className="form-group">
-                <label>Simulated Duty Time *</label>
+                <label>Duty Time *</label>
                 <input
                   type="text"
                   className="form-input"
@@ -516,7 +509,7 @@ export default function Employees() {
                 </button>
                 <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
                   <PhoneCall size={15} />
-                  {isSubmitting ? 'Dialing Exotel...' : 'Trigger Test Call Now'}
+                  {isSubmitting ? 'Dialing...' : 'Dispatch Call Now'}
                 </button>
               </div>
             </form>

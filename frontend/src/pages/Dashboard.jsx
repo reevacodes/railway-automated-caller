@@ -162,13 +162,13 @@ export default function Dashboard({ onNavigateToTest }) {
                 textTransform: 'uppercase',
                 letterSpacing: '0.5px'
               }}>
-                {isSchedulerActive ? '● ACTIVE (EVERY 60s)' : 'PAUSED'}
+                {isSchedulerActive ? '● ACTIVE' : 'PAUSED'}
               </span>
             </div>
-            <p style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.8)', margin: '0.2rem 0 0 0' }}>
+            <p style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.85)', margin: '0.2rem 0 0 0' }}>
               {isSchedulerActive 
-                ? `Background engine checks SQLite every minute (Kolkata: ${stats?.scheduler?.currentKolkataTime || 'Syncing...'}). Due reminders: ${stats?.scheduler?.dueCount || 0}`
-                : 'Background caller is currently paused. Toggle ON to enable automatic Exotel call dispatching.'}
+                ? `Automated call engine is active. Voice calls trigger automatically 30 minutes prior to duty reporting time.`
+                : 'Automated call engine is paused. Enable calling to automatically dispatch duty reminders.'}
             </p>
           </div>
         </div>
@@ -293,7 +293,7 @@ export default function Dashboard({ onNavigateToTest }) {
       {/* Today's Scheduled Duties Table */}
       <div className="table-card">
         <div className="table-header">
-          <h2>TODAY'S SCHEDULED DUTIES (OPERATIONS DESK)</h2>
+          <h2>TODAY'S SCHEDULED DUTIES</h2>
           <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>
             Total Roster: {todaysDuties.length} Duties
           </span>
@@ -313,9 +313,9 @@ export default function Dashboard({ onNavigateToTest }) {
                 <th>Employee / Staff Details</th>
                 <th>Department</th>
                 <th>Reporting Time</th>
-                <th>Auto Reminder (-30m)</th>
+                <th>Auto Reminder</th>
                 <th>Reminder Status</th>
-                <th>Telephony Call Status</th>
+                <th>Call Status</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -341,7 +341,7 @@ export default function Dashboard({ onNavigateToTest }) {
                         className="btn btn-sm btn-primary"
                         onClick={() => handleQuickTestCall(duty)}
                         disabled={testCallLoadingId === duty.id}
-                        title="Dispatch test voice call"
+                        title="Dispatch voice call now"
                       >
                         <Send size={12} />
                         {testCallLoadingId === duty.id ? 'Calling...' : 'Call Now'}
@@ -360,49 +360,6 @@ export default function Dashboard({ onNavigateToTest }) {
             </tbody>
           </table>
         )}
-      </div>
-
-      {/* System Specifications Panel */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-        gap: '1.25rem'
-      }}>
-        <div style={{
-          backgroundColor: 'var(--bg-card)',
-          border: '1px solid var(--border-strong)',
-          borderRadius: 'var(--radius-md)',
-          padding: '1.25rem'
-        }}>
-          <h3 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--railway-navy)', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <PhoneCall size={16} color="var(--railway-blue)" />
-            Telephony Service Layer
-          </h3>
-          <ul style={{ fontSize: '0.8rem', color: 'var(--text-body)', lineHeight: '1.7', paddingLeft: '1.1rem' }}>
-            <li><b>Provider Architecture:</b> Decoupled Telephony Interface (Service Pattern)</li>
-            <li><b>Active Provider:</b> {stats?.telephonyProvider || 'Exotel'}</li>
-            <li><b>Configuration:</b> {stats?.isProviderConfigured ? 'Live API Credentials Set' : 'Demo Mode Active'}</li>
-            <li><b>Webhook Receiver:</b> <code>/api/webhooks/exotel</code></li>
-          </ul>
-        </div>
-
-        <div style={{
-          backgroundColor: 'var(--bg-card)',
-          border: '1px solid var(--border-strong)',
-          borderRadius: 'var(--radius-md)',
-          padding: '1.25rem'
-        }}>
-          <h3 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--railway-navy)', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Clock size={16} color="var(--railway-gold)" />
-            Cron Scheduler Specifications
-          </h3>
-          <ul style={{ fontSize: '0.8rem', color: 'var(--text-body)', lineHeight: '1.7', paddingLeft: '1.1rem' }}>
-            <li><b>Polling Interval:</b> Every 60 seconds (<code>node-cron</code>)</li>
-            <li><b>Enforced Timezone:</b> <code>Asia/Kolkata</code></li>
-            <li><b>Idempotency Control:</b> Atomic database row locking prevents duplicate calls.</li>
-            <li><b>Call Logic:</b> Triggers when <code>reminder_time &lt;= current_time</code></li>
-          </ul>
-        </div>
       </div>
     </div>
   );
