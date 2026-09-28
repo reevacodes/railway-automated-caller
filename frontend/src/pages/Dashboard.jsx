@@ -116,14 +116,25 @@ export default function Dashboard({ onNavigateToTest }) {
     }
   };
 
-  const getStatusBadge = (status) => {
+  const getStatusBadge = (status, duty = null) => {
     const s = (status || 'pending').toLowerCase();
     let className = 'status-pending';
-    if (s.includes('confirm') || s === 'completed') className = 'status-completed';
-    else if (s.includes('assist') || s.includes('fail') || s.includes('busy') || s.includes('no-answer')) className = 'status-failed';
-    else if (s.includes('call') || s.includes('sched') || s.includes('in-prog')) className = 'status-calling';
+    let label = status || 'Pending';
 
-    return <span className={`badge-status ${className}`}>{status || 'Pending'}</span>;
+    if (s.includes('escalate')) {
+      return <span className="badge-status status-failed" style={{ backgroundColor: '#fef2f2', color: '#b91c1c', border: '1px solid #fecaca', fontWeight: 700 }}>🚨 Escalated (Max Retries)</span>;
+    } else if (s.includes('confirm')) {
+      return <span className="badge-status status-completed">Confirmed</span>;
+    } else if (s.includes('assist')) {
+      return <span className="badge-status status-failed">Assistance Needed</span>;
+    } else if (s.includes('no-answer') || s.includes('busy') || s.includes('fail')) {
+      const count = duty?.retry_count || 0;
+      return <span className="badge-status status-pending" style={{ backgroundColor: '#fffbe3', color: '#b45309', border: '1px solid #fde68a' }}>{count > 0 ? `Unanswered (Retry #${count})` : 'Unanswered (Retry 5m)'}</span>;
+    } else if (s.includes('call') || s.includes('sched') || s.includes('in-prog')) {
+      return <span className="badge-status status-calling">Calling...</span>;
+    }
+
+    return <span className={`badge-status ${className}`}>{label}</span>;
   };
 
   const isSchedulerActive = stats?.scheduler?.enabled ?? false;
@@ -345,8 +356,8 @@ export default function Dashboard({ onNavigateToTest }) {
                   <td>
                     <span style={{ fontWeight: 700, color: '#b45309' }}>{duty.reminder_time}</span>
                   </td>
-                  <td>{getStatusBadge(duty.reminder_status)}</td>
-                  <td>{getStatusBadge(duty.call_status)}</td>
+                  <td>{getStatusBadge(duty.reminder_status, duty)}</td>
+                  <td>{getStatusBadge(duty.call_status, duty)}</td>
                   <td>
                     <div style={{ display: 'flex', gap: '0.4rem' }}>
                       <button

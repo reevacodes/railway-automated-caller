@@ -78,7 +78,7 @@ router.all('/exoml/response', (req, res) => {
         if (callLog.duty_id) {
           db.prepare(`
             UPDATE duties
-            SET reminder_status = ?, call_status = 'Completed', confirmation_time = ?, updated_at = ?
+            SET reminder_status = ?, call_status = 'Completed', confirmation_time = ?, next_retry_at = NULL, updated_at = ?
             WHERE id = ?
           `).run(dutyStatus, now, now, callLog.duty_id);
         }
@@ -95,7 +95,7 @@ router.all('/exoml/response', (req, res) => {
         if (latestLog.duty_id) {
           db.prepare(`
             UPDATE duties
-            SET reminder_status = ?, call_status = 'Completed', confirmation_time = ?, updated_at = ?
+            SET reminder_status = ?, call_status = 'Completed', confirmation_time = ?, next_retry_at = NULL, updated_at = ?
             WHERE id = ?
           `).run(dutyStatus, now, now, latestLog.duty_id);
         }
@@ -250,11 +250,31 @@ router.post('/exotel', (req, res) => {
       updateStmt.run(mappedStatus, duration, now, dtmfInput, confirmationStatus, existingLog.id);
 
       if (existingLog.duty_id) {
+        const duty = db.prepare('SELECT * FROM duties WHERE id = ?').get(existingLog.duty_id);
+        const { DateTime } = require('luxon');
+        const nextRetryDt = DateTime.now().setZone('Asia/Kolkata').plus({ minutes: 5 }).toFormat('yyyy-MM-dd HH:mm:ss');
+        const isUnanswered = ['no-answer', 'busy', 'failed'].includes(mappedStatus);
+        const retryCount = duty ? (duty.retry_count || 0) : 0;
+        const maxLimit = duty ? (duty.max_retries || 3) : 3;
+
+        let finalReminderStatus = reminderStatusFinal || 'Completed';
+        let calcNextRetry = null;
+
+        if (isUnanswered && !['Confirmed', 'Assistance Requested'].includes(duty?.reminder_status)) {
+          if (retryCount >= maxLimit) {
+            finalReminderStatus = 'Escalated';
+            calcNextRetry = null;
+          } else {
+            finalReminderStatus = mappedStatus === 'no-answer' ? 'No-Answer' : (mappedStatus === 'busy' ? 'Busy' : 'Failed');
+            calcNextRetry = nextRetryDt;
+          }
+        }
+
         db.prepare(`
           UPDATE duties
-          SET call_status = ?, reminder_status = ?, updated_at = ?
+          SET call_status = ?, reminder_status = ?, next_retry_at = ?, updated_at = ?
           WHERE id = ?
-        `).run(mappedStatus, reminderStatusFinal || 'Completed', now, existingLog.duty_id);
+        `).run(mappedStatus, finalReminderStatus, calcNextRetry, now, existingLog.duty_id);
       }
 
       console.log(`[Webhook:Exotel] Updated Call Log #${existingLog.id} (CallSid: ${providerCallId}) to status '${mappedStatus}', DTMF: '${dtmfInput}'`);

@@ -61,10 +61,13 @@ function initDatabase() {
     CREATE INDEX IF NOT EXISTS idx_call_logs_provider ON call_logs (provider_call_id);
   `);
 
-  // Migrate existing tables to add DTMF columns if they don't exist
+  // Migrate existing tables to add DTMF and Retry columns if they don't exist
   try { db.exec(`ALTER TABLE call_logs ADD COLUMN dtmf_input TEXT;`); } catch (e) {}
   try { db.exec(`ALTER TABLE call_logs ADD COLUMN confirmation_status TEXT;`); } catch (e) {}
   try { db.exec(`ALTER TABLE duties ADD COLUMN confirmation_time TEXT;`); } catch (e) {}
+  try { db.exec(`ALTER TABLE duties ADD COLUMN retry_count INTEGER DEFAULT 0;`); } catch (e) {}
+  try { db.exec(`ALTER TABLE duties ADD COLUMN max_retries INTEGER DEFAULT 3;`); } catch (e) {}
+  try { db.exec(`ALTER TABLE duties ADD COLUMN next_retry_at TEXT;`); } catch (e) {}
 
   // Seed default dummy employees if empty (approx 8-10 normal employees)
   const countStmt = db.prepare('SELECT COUNT(*) as count FROM employees');
