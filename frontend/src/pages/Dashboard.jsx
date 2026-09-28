@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { getSummaryStats, getDuties, initiateTestCall, resetDutyStatus, toggleScheduler, triggerScheduler } from '../services/api';
+import { subscribeToWebSocket } from '../services/websocket';
 import { Calendar, PhoneCall, CheckCircle, AlertTriangle, Clock, RefreshCw, Send, Zap, Play, Pause, Radio } from 'lucide-react';
 
 export default function Dashboard({ onNavigateToTest }) {
@@ -35,8 +36,19 @@ export default function Dashboard({ onNavigateToTest }) {
 
   useEffect(() => {
     loadDashboardData();
-    const interval = setInterval(loadDashboardData, 1500);
-    return () => clearInterval(interval);
+
+    // Subscribe to instant real-time WebSocket pushes
+    const unsubscribe = subscribeToWebSocket((data) => {
+      if (data.type === 'DATA_CHANGED') {
+        loadDashboardData();
+      }
+    });
+
+    const fallbackInterval = setInterval(loadDashboardData, 10000);
+    return () => {
+      unsubscribe();
+      clearInterval(fallbackInterval);
+    };
   }, []);
 
   const handleToggleScheduler = async () => {

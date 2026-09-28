@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { getDuties, createDuty, deleteDuty, resetDutyStatus, getEmployees } from '../services/api';
+import { subscribeToWebSocket } from '../services/websocket';
 import { CalendarPlus, Trash2, RefreshCw, Clock, Sparkles } from 'lucide-react';
 import { DateTime } from 'luxon';
 
@@ -42,8 +43,19 @@ export default function Duties() {
 
   useEffect(() => {
     loadData();
-    const interval = setInterval(loadData, 1500);
-    return () => clearInterval(interval);
+
+    // Subscribe to instant real-time WebSocket pushes
+    const unsubscribe = subscribeToWebSocket((data) => {
+      if (data.type === 'DATA_CHANGED') {
+        loadData();
+      }
+    });
+
+    const fallbackInterval = setInterval(loadData, 10000);
+    return () => {
+      unsubscribe();
+      clearInterval(fallbackInterval);
+    };
   }, []);
 
   // Calculate preview reminder time on the fly

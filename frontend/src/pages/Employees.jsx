@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { getEmployees, createEmployee, updateEmployee, deleteEmployee, initiateTestCall } from '../services/api';
+import { subscribeToWebSocket } from '../services/websocket';
 import { UserPlus, Search, Edit2, Trash2, PhoneCall, Check, X, Phone } from 'lucide-react';
 
 export default function Employees() {
@@ -45,6 +46,14 @@ export default function Employees() {
 
   useEffect(() => {
     fetchEmployees();
+
+    const unsubscribe = subscribeToWebSocket((data) => {
+      if (data.type === 'DATA_CHANGED') {
+        fetchEmployees();
+      }
+    });
+
+    return () => unsubscribe();
   }, [search, deptFilter]);
 
   const handleOpenAdd = () => {

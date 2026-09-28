@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../config/db');
 const { calculateReminderTime, getCurrentDateTimeString, getCurrentDateString } = require('../config/timezone');
+const { broadcastUpdate } = require('../services/websocket');
 
 // GET duties (with filter support, e.g. date=today, employee_id, status)
 router.get('/', (req, res) => {
@@ -116,6 +117,8 @@ router.post('/', (req, res) => {
 
     console.log(`[API] Created duty for ${createdDuty.employee_name}: Reporting at ${createdDuty.reporting_time}, Reminder scheduled for ${createdDuty.reminder_time}`);
 
+    broadcastUpdate('DATA_CHANGED', { action: 'DUTY_CREATED', duty: createdDuty });
+
     res.status(201).json({
       success: true,
       data: createdDuty,
@@ -169,6 +172,8 @@ router.put('/:id', (req, res) => {
       WHERE d.id = ?
     `).get(req.params.id);
 
+    broadcastUpdate('DATA_CHANGED', { action: 'DUTY_UPDATED', duty: updated });
+
     res.json({ success: true, data: updated, message: 'Duty updated successfully' });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -190,6 +195,8 @@ router.post('/:id/reset', (req, res) => {
       return res.status(404).json({ success: false, error: 'Duty not found' });
     }
 
+    broadcastUpdate('DATA_CHANGED', { action: 'DUTY_RESET', id: req.params.id });
+
     res.json({ success: true, message: 'Duty reminder status reset to Pending.' });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -203,6 +210,9 @@ router.delete('/:id', (req, res) => {
     if (result.changes === 0) {
       return res.status(404).json({ success: false, error: 'Duty not found' });
     }
+
+    broadcastUpdate('DATA_CHANGED', { action: 'DUTY_DELETED', id: req.params.id });
+
     res.json({ success: true, message: 'Duty deleted successfully' });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -210,3 +220,4 @@ router.delete('/:id', (req, res) => {
 });
 
 module.exports = router;
+

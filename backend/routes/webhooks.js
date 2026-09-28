@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../config/db');
 const { getCurrentDateTimeString } = require('../config/timezone');
+const { broadcastUpdate } = require('../services/websocket');
 
 /**
  * Exoml XML endpoint for Exotel Voice Messages / IVR Menu
@@ -101,6 +102,9 @@ router.all('/exoml/response', (req, res) => {
       }
     }
 
+    // Broadcast instant WebSocket update
+    broadcastUpdate('DATA_CHANGED', { source: 'DTMF_KEYPRESS', digits, confirmationStatus });
+
     const xmlResponse = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
     <Say voice="female" language="en-IN">${responseMessage}</Say>
@@ -166,6 +170,8 @@ router.post('/dtmf-simulate', (req, res) => {
     }
 
     const updatedLog = db.prepare('SELECT * FROM call_logs WHERE id = ?').get(targetLog.id);
+
+    broadcastUpdate('DATA_CHANGED', { source: 'DTMF_SIMULATE', digits, dutyStatus });
 
     res.json({
       success: true,
@@ -255,6 +261,8 @@ router.post('/exotel', (req, res) => {
     } else {
       console.log(`[Webhook:Exotel] Received webhook for untracked CallSid '${providerCallId}'. Status: '${mappedStatus}'`);
     }
+
+    broadcastUpdate('DATA_CHANGED', { source: 'EXOTEL_WEBHOOK', mappedStatus });
 
     res.status(200).json({ success: true, status: mappedStatus, receivedCallSid: providerCallId });
   } catch (error) {

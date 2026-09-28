@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../config/db');
 const { getCurrentDateTimeString } = require('../config/timezone');
+const { broadcastUpdate } = require('../services/websocket');
 
 // GET all employees
 router.get('/', (req, res) => {
@@ -78,6 +79,8 @@ router.post('/', (req, res) => {
     const newEmployee = db.prepare('SELECT * FROM employees WHERE id = ?').get(result.lastInsertRowid);
     console.log(`[API] Created employee: ${newEmployee.name} (${newEmployee.employee_id})`);
 
+    broadcastUpdate('DATA_CHANGED', { action: 'EMPLOYEE_CREATED', employee: newEmployee });
+
     res.status(201).json({ success: true, data: newEmployee, message: 'Employee added successfully' });
   } catch (error) {
     console.error('[API] Error adding employee:', error);
@@ -112,6 +115,9 @@ router.put('/:id', (req, res) => {
     stmt.run(updatedName, updatedPhone, updatedDept, updatedActive, now, existing.id);
 
     const updated = db.prepare('SELECT * FROM employees WHERE id = ?').get(existing.id);
+
+    broadcastUpdate('DATA_CHANGED', { action: 'EMPLOYEE_UPDATED', employee: updated });
+
     res.json({ success: true, data: updated, message: 'Employee updated successfully' });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -130,6 +136,8 @@ router.delete('/:id', (req, res) => {
     db.prepare('DELETE FROM employees WHERE id = ?').run(existing.id);
     console.log(`[API] Deleted employee: ${existing.name} (${existing.employee_id})`);
 
+    broadcastUpdate('DATA_CHANGED', { action: 'EMPLOYEE_DELETED', id: existing.id });
+
     res.json({ success: true, message: 'Employee deleted successfully' });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -137,3 +145,4 @@ router.delete('/:id', (req, res) => {
 });
 
 module.exports = router;
+

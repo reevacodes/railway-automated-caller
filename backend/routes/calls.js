@@ -40,6 +40,7 @@ router.get('/', (req, res) => {
 });
 
 const { getSchedulerStatus, setSchedulerEnabled, processPendingReminders } = require('../scheduler/reminderScheduler');
+const { broadcastUpdate } = require('../services/websocket');
 
 // GET scheduler status
 router.get('/scheduler', (req, res) => {
@@ -56,6 +57,7 @@ router.post('/scheduler/toggle', (req, res) => {
   try {
     const { enabled } = req.body;
     const newState = setSchedulerEnabled(enabled !== undefined ? enabled : true);
+    broadcastUpdate('DATA_CHANGED', { action: 'SCHEDULER_TOGGLED', enabled: newState });
     res.json({
       success: true,
       data: getSchedulerStatus(),
@@ -187,6 +189,8 @@ router.post('/test', async (req, res) => {
     );
 
     const createdLog = db.prepare('SELECT * FROM call_logs WHERE id = ?').get(result.lastInsertRowid);
+
+    broadcastUpdate('DATA_CHANGED', { action: 'TEST_CALL_DISPATCHED', callLog: createdLog });
 
     // Return response WITHOUT exposing any credentials
     res.json({

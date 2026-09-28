@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { getCallLogs, initiateTestCall, getEmployees, simulateDtmfResponse } from '../services/api';
+import { subscribeToWebSocket } from '../services/websocket';
 import { PhoneCall, RefreshCw, Send, CheckCircle2, AlertCircle, PhoneIncoming, CheckSquare, HelpCircle } from 'lucide-react';
 
 export default function CallLogs() {
@@ -40,8 +41,19 @@ export default function CallLogs() {
 
   useEffect(() => {
     fetchLogs();
-    const interval = setInterval(fetchLogs, 1500);
-    return () => clearInterval(interval);
+
+    // Subscribe to instant real-time WebSocket pushes
+    const unsubscribe = subscribeToWebSocket((data) => {
+      if (data.type === 'DATA_CHANGED') {
+        fetchLogs();
+      }
+    });
+
+    const fallbackInterval = setInterval(fetchLogs, 10000);
+    return () => {
+      unsubscribe();
+      clearInterval(fallbackInterval);
+    };
   }, []);
 
   const handleSelectEmployee = (empId) => {

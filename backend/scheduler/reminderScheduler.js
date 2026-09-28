@@ -140,6 +140,10 @@ async function processSingleDutyReminder(duty) {
     `).run('Calling', callResult.status || 'initiated', now, duty.id);
 
     console.log(`[Scheduler] ✅ Call successfully dispatched. SID: ${callResult.providerCallId}`);
+
+    const { broadcastUpdate } = require('../services/websocket');
+    broadcastUpdate('DATA_CHANGED', { source: 'SCHEDULER', dutyId: duty.id, callSid: callResult.providerCallId });
+
     return { dutyId: duty.id, success: true, callSid: callResult.providerCallId };
   } catch (error) {
     console.error(`[Scheduler] ❌ Call failed for Duty #${duty.id}:`, error.message);
@@ -148,6 +152,9 @@ async function processSingleDutyReminder(duty) {
       SET reminder_status = 'Failed', call_status = 'Failed', updated_at = ?
       WHERE id = ?
     `).run(now, duty.id);
+
+    const { broadcastUpdate } = require('../services/websocket');
+    broadcastUpdate('DATA_CHANGED', { source: 'SCHEDULER_FAILED', dutyId: duty.id });
 
     return { dutyId: duty.id, success: false, error: error.message };
   }

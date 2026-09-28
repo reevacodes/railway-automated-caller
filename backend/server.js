@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const http = require('http');
 
 const employeesRouter = require('./routes/employees');
 const dutiesRouter = require('./routes/duties');
@@ -10,9 +11,14 @@ const webhooksRouter = require('./routes/webhooks');
 const { initScheduler } = require('./scheduler/reminderScheduler');
 const { getCurrentDateTimeString, TIMEZONE } = require('./config/timezone');
 const telephonyService = require('./services/telephony/telephonyService');
+const { initWebSocket } = require('./services/websocket');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+const server = http.createServer(app);
+
+// Initialize WebSocket server
+initWebSocket(server);
 
 // Enable CORS
 app.use(cors());
@@ -91,10 +97,11 @@ app.use((err, req, res, next) => {
 });
 
 // Start Express Server
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`=======================================================`);
   console.log(`🚂 Railway Duty Reminder System API Server`);
   console.log(`📡 Listening on http://localhost:${PORT}`);
+  console.log(`⚡ WebSocket Server active on ws://localhost:${PORT}/ws`);
   console.log(`⏰ Timezone: ${TIMEZONE} (${getCurrentDateTimeString()})`);
   console.log(`⚙️  DEMO_MODE: ${process.env.DEMO_MODE !== 'false' ? 'ENABLED (Safe Mode)' : 'DISABLED (Live Calls)'}`);
   console.log(`📞 Telephony Provider: ${telephonyService.getProviderName()} (${telephonyService.isConfigured() ? 'Configured' : 'Using Demo Mock'})`);
@@ -103,3 +110,4 @@ app.listen(PORT, () => {
   // Start automated cron scheduler
   initScheduler();
 });
+
