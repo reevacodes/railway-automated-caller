@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, Users, Calendar, PhoneCall, Settings as SettingsIcon, Train, Clock, ShieldCheck } from 'lucide-react';
+import { LayoutDashboard, Users, Calendar, PhoneCall, Settings as SettingsIcon, Train, Clock, ShieldCheck, Menu, X } from 'lucide-react';
 import { DateTime } from 'luxon';
 
 import Dashboard from './pages/Dashboard';
@@ -20,11 +20,13 @@ const getInitialTab = () => {
 export default function App() {
   const [activeTab, setActiveTab] = useState(getInitialTab);
   const [kolkataTime, setKolkataTime] = useState('');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const changeTab = (tab) => {
     setActiveTab(tab);
     window.location.hash = tab;
     localStorage.setItem('railway_active_tab', tab);
+    setMobileMenuOpen(false);
   };
 
   useEffect(() => {
@@ -84,8 +86,23 @@ export default function App() {
 
   return (
     <div className="app-container">
+      {/* Mobile Top Header */}
+      <div className="mobile-header">
+        <div className="mobile-brand">
+          <Train size={20} color="#c59b27" />
+          <span>INDIAN RAILWAYS</span>
+        </div>
+        <button
+          className="mobile-toggle-btn"
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          aria-label="Toggle Navigation Menu"
+        >
+          {mobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
+        </button>
+      </div>
+
       {/* Formal Railway Sidebar */}
-      <aside className="sidebar">
+      <aside className={`sidebar ${mobileMenuOpen ? 'mobile-open' : ''}`}>
         <div className="brand-header">
           <div className="brand-logo">
             <Train size={24} />
