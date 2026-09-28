@@ -51,9 +51,37 @@ app.get('/api/system/info', (req, res) => {
   });
 });
 
-// 404 Handler for unknown routes
+const fs = require('fs');
+
+// Serve React Frontend static files if built in frontend/dist
+const frontendDistPath = path.join(__dirname, '../frontend/dist');
+if (fs.existsSync(frontendDistPath)) {
+  console.log('[Server] Serving React frontend production build from frontend/dist');
+  app.use(express.static(frontendDistPath));
+  app.get('*', (req, res, next) => {
+    if (req.originalUrl.startsWith('/api')) return next();
+    res.sendFile(path.join(frontendDistPath, 'index.html'));
+  });
+} else {
+  app.get('/', (req, res) => {
+    res.json({
+      success: true,
+      appName: 'Railway Employee Duty Reminder System API',
+      status: 'Online & Active',
+      timezone: TIMEZONE,
+      currentKolkataTime: getCurrentDateTimeString(),
+      webhooks: {
+        exomlGreeting: '/api/webhooks/exoml',
+        exomlDtmfResponse: '/api/webhooks/exoml/response',
+        exotelStatusCallback: '/api/webhooks/exotel'
+      }
+    });
+  });
+}
+
+// 404 Handler for unknown API routes
 app.use((req, res) => {
-  res.status(404).json({ success: false, error: 'API route not found' });
+  res.status(404).json({ success: false, error: `API route '${req.originalUrl}' not found.` });
 });
 
 // Global Error Handler
