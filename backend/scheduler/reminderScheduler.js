@@ -130,10 +130,13 @@ async function processSingleDutyReminder(duty, isRetry = false) {
   console.log(`[Scheduler] 🚨 AUTOMATED CALL DISPATCH ${isRetry ? `(RETRY #${currentRetryCount})` : '(INITIAL)'}: Calling ${duty.employee_name} (${duty.employee_phone}) for Duty #${duty.id}`);
 
   try {
+    const webhookUrl = `${process.env.APP_URL || 'https://railway-automated-caller.onrender.com'}/api/webhooks/exotel`;
+
     const callResult = await telephonyService.callEmployee({
       phoneNumber: duty.employee_phone,
       employeeName: duty.employee_name,
-      dutyTime: duty.reporting_time
+      dutyTime: duty.reporting_time,
+      webhookUrl: webhookUrl
     });
 
     const voiceMsg = isRetry 
