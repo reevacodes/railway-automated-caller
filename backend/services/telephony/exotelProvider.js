@@ -94,6 +94,7 @@ class ExotelProvider {
         params.append('From', targetPhone);
         params.append('CallerId', this.virtualNumber);
         params.append('Url', flowUrl);
+        params.append('CustomField', spokenMessage); // Must pass CustomField so webhook can read it
       } else {
         // Direct Call Mode (Exotel Verified Connect Payload)
         console.log(`[Telephony:Exotel] Mode: Direct Call (From: ${maskedPhone}, To: ${maskedPhone})`);

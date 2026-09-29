@@ -11,8 +11,10 @@ const { broadcastUpdate } = require('../services/websocket');
 router.all('/exoml', (req, res) => {
   try {
     const host = req.get('host') || 'localhost:5000';
-    const protocol = req.protocol || 'http';
-    const actionUrl = `${protocol}://${host}/api/webhooks/exoml/response`;
+    // If behind Render proxy, req.protocol might be 'http', so we enforce 'https' for deployed apps
+    const protocol = process.env.APP_URL ? 'https' : (req.protocol || 'http');
+    const baseUrl = process.env.APP_URL || `${protocol}://${host}`;
+    const actionUrl = `${baseUrl}/api/webhooks/exoml/response`;
 
     const customMsg = (req.query && req.query.CustomField) || (req.body && req.body.CustomField) || 
       "Hello. This is an automated Railway duty reminder. Please press 1 to confirm your duty reporting, or press 2 to request control room assistance.";
