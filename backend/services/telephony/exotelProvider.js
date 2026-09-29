@@ -94,7 +94,12 @@ class ExotelProvider {
         params.append('From', targetPhone);
         params.append('CallerId', this.virtualNumber);
         params.append('Url', flowUrl);
-        params.append('CustomField', spokenMessage); // Must pass CustomField so webhook can read it
+        
+        // Exotel Applets (start_voice) often crash or reject calls if CustomField is passed.
+        // We only append it if we are using our custom dynamic webhook URL.
+        if (!flowUrl.includes('start_voice')) {
+          params.append('CustomField', spokenMessage);
+        }
       } else {
         // Direct Call Mode (Exotel Verified Connect Payload)
         console.log(`[Telephony:Exotel] Mode: Direct Call (From: ${maskedPhone}, To: ${maskedPhone})`);
