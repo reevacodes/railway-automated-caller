@@ -11,8 +11,8 @@ const { broadcastUpdate } = require('../services/websocket');
 router.all('/exoml', (req, res) => {
   try {
     const host = req.get('host') || 'localhost:5000';
-    // If behind Render proxy, req.protocol might be 'http', so we enforce 'https' for deployed apps
-    const protocol = process.env.APP_URL ? 'https' : (req.protocol || 'http');
+    // Render proxies HTTP to HTTPS, so req.protocol is HTTP. We must force HTTPS.
+    const protocol = host.includes('localhost') ? 'http' : 'https';
     const baseUrl = process.env.APP_URL || `${protocol}://${host}`;
     const actionUrl = `${baseUrl}/api/webhooks/exoml/response`;
 
@@ -22,9 +22,9 @@ router.all('/exoml', (req, res) => {
     const xmlResponse = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
     <Gather action="${actionUrl}" method="POST" numDigits="1" timeout="10">
-        <Say voice="female" language="en-IN">${customMsg}</Say>
+        <Say>${customMsg}</Say>
     </Gather>
-    <Say voice="female" language="en-IN">We did not receive any input. Thank you and goodbye.</Say>
+    <Say>We did not receive any input. Thank you and goodbye.</Say>
 </Response>`;
 
     res.set('Content-Type', 'text/xml');
@@ -111,7 +111,7 @@ router.all('/exoml/response', async (req, res) => {
 
     const xmlResponse = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-    <Say voice="female" language="en-IN">${responseMessage}</Say>
+    <Say>${responseMessage}</Say>
 </Response>`;
 
     res.set('Content-Type', 'text/xml');
