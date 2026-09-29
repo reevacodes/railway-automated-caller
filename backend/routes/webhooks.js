@@ -78,7 +78,9 @@ router.all('/exoml/response', async (req, res) => {
       (req.query && (req.query.CallSid || req.query.Sid)) ||
       '';
 
-    const normalizedDigits = String(digits || '').trim();
+    const normalizedDigits = String(digits || '')
+      .trim()
+      .replace(/^["']+|["']+$/g, '');
     const normalizedCallSid = String(callSid || '').trim();
     const now = getCurrentDateTimeString();
 
