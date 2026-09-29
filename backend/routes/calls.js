@@ -5,7 +5,7 @@ const telephonyService = require('../services/telephony/telephonyService');
 const { getCurrentDateTimeString, getCurrentDateString } = require('../config/timezone');
 
 // GET all call logs
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const { limit = 100, call_type } = req.query;
 
@@ -22,17 +22,19 @@ router.get('/', (req, res) => {
       WHERE 1=1
     `;
     const params = [];
+    let paramIndex = 1;
 
     if (call_type) {
-      query += ' AND c.call_type = ?';
+      query += ` AND c.call_type = $${paramIndex}`;
       params.push(call_type);
+      paramIndex++;
     }
 
-    query += ' ORDER BY c.id DESC LIMIT ?';
+    query += ` ORDER BY c.id DESC LIMIT $${paramIndex}`;
     params.push(parseInt(limit, 10));
 
-    const logs = db.prepare(query).all(...params);
-    res.json({ success: true, data: logs });
+    const result = await db.query(query, params);
+    res.json({ success: true, data: result.rows });
   } catch (error) {
     console.error('[API] Error fetching call logs:', error.message);
     res.status(500).json({ success: false, error: 'Failed to retrieve call logs' });
@@ -43,9 +45,9 @@ const { getSchedulerStatus, setSchedulerEnabled, processPendingReminders } = req
 const { broadcastUpdate } = require('../services/websocket');
 
 // GET scheduler status
-router.get('/scheduler', (req, res) => {
+router.get('/scheduler', async (req, res) => {
   try {
-    const status = getSchedulerStatus();
+    const status = await getSchedulerStatus();
     res.json({ success: true, data: status });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -53,14 +55,15 @@ router.get('/scheduler', (req, res) => {
 });
 
 // POST toggle scheduler ON/OFF
-router.post('/scheduler/toggle', (req, res) => {
+router.post('/scheduler/toggle', async (req, res) => {
   try {
     const { enabled } = req.body;
     const newState = setSchedulerEnabled(enabled !== undefined ? enabled : true);
     broadcastUpdate('DATA_CHANGED', { action: 'SCHEDULER_TOGGLED', enabled: newState });
+    const status = await getSchedulerStatus();
     res.json({
       success: true,
-      data: getSchedulerStatus(),
+      data: status,
       message: `Automated background call scheduler is now ${newState ? 'ENABLED' : 'PAUSED'}.`
     });
   } catch (error) {
@@ -73,11 +76,12 @@ router.post('/scheduler/trigger', async (req, res) => {
   try {
     console.log('[API] Manual trigger requested for pending duty reminders scan...');
     const results = await processPendingReminders();
+    const status = await getSchedulerStatus();
     res.json({
       success: true,
       dispatchedCount: results.length,
       results,
-      status: getSchedulerStatus(),
+      status: status,
       message: results.length > 0
         ? `Successfully processed and dispatched ${results.length} automated call reminder(s).`
         : 'No pending duty reminders were due at this time.'
@@ -88,28 +92,35 @@ router.post('/scheduler/trigger', async (req, res) => {
 });
 
 // GET summary stats for Dashboard cards
-router.get('/summary', (req, res) => {
+router.get('/summary', async (req, res) => {
   try {
     const todayStr = getCurrentDateString();
 
-    const todaysDuties = db.prepare('SELECT COUNT(*) as count FROM duties WHERE duty_date = ?').get(todayStr).count;
+    const todaysRes = await db.query('SELECT COUNT(*) as count FROM duties WHERE duty_date = $1', [todayStr]);
+    const todaysDuties = parseInt(todaysRes.rows[0].count, 10);
     
-    const pendingReminders = db.prepare(`
+    const pendingRes = await db.query(`
       SELECT COUNT(*) as count FROM duties 
-      WHERE duty_date = ? AND reminder_status = 'Pending'
-    `).get(todayStr).count;
+      WHERE duty_date = $1 AND reminder_status = 'Pending'
+    `, [todayStr]);
+    const pendingReminders = parseInt(pendingRes.rows[0].count, 10);
 
-    const callsCompleted = db.prepare(`
+    // SQLite uses strftime. For PostgreSQL, we can use DATE(created_at::timestamp) if it was stored as valid timestamp,
+    // or string matching if it's stored as 'YYYY-MM-DD HH:mm:ss' TEXT. Assuming TEXT format:
+    // substring(created_at from 1 for 10) = '2023-10-10'
+    const completedRes = await db.query(`
       SELECT COUNT(*) as count FROM call_logs 
-      WHERE status IN ('answered', 'completed') AND strftime('%Y-%m-%d', created_at) = ?
-    `).get(todayStr).count;
+      WHERE status IN ('answered', 'completed') AND substring(created_at from 1 for 10) = $1
+    `, [todayStr]);
+    const callsCompleted = parseInt(completedRes.rows[0].count, 10);
 
-    const callsFailed = db.prepare(`
+    const failedRes = await db.query(`
       SELECT COUNT(*) as count FROM call_logs 
-      WHERE status IN ('failed', 'no-answer', 'busy') AND strftime('%Y-%m-%d', created_at) = ?
-    `).get(todayStr).count;
+      WHERE status IN ('failed', 'no-answer', 'busy') AND substring(created_at from 1 for 10) = $1
+    `, [todayStr]);
+    const callsFailed = parseInt(failedRes.rows[0].count, 10);
 
-    const schedulerInfo = getSchedulerStatus();
+    const schedulerInfo = await getSchedulerStatus();
 
     res.json({
       success: true,
@@ -148,11 +159,24 @@ router.post('/test', async (req, res) => {
   // Ensure employeeId exists in DB to satisfy Foreign Key constraint
   let empRecord = null;
   if (employeeId) {
-    empRecord = db.prepare('SELECT employee_id FROM employees WHERE employee_id = ? OR id = ?').get(employeeId, employeeId);
+    const isInt = !isNaN(parseInt(employeeId, 10));
+    let empRes;
+    if (isInt) {
+      empRes = await db.query('SELECT employee_id FROM employees WHERE employee_id = $1 OR id = $2', [employeeId, parseInt(employeeId, 10)]);
+    } else {
+      empRes = await db.query('SELECT employee_id FROM employees WHERE employee_id = $1', [employeeId]);
+    }
+    if (empRes.rows.length > 0) {
+      empRecord = empRes.rows[0];
+    }
   }
+  
   if (!empRecord) {
     // Pick first available employee from seeded DB
-    empRecord = db.prepare('SELECT employee_id FROM employees LIMIT 1').get();
+    const empRes = await db.query('SELECT employee_id FROM employees LIMIT 1');
+    if (empRes.rows.length > 0) {
+      empRecord = empRes.rows[0];
+    }
   }
   const validEmployeeId = empRecord ? empRecord.employee_id : 'EMP-101';
 
@@ -172,13 +196,12 @@ router.post('/test', async (req, res) => {
     });
 
     // Store resulting call information in SQLite call_logs table
-    const stmt = db.prepare(`
+    const insertRes = await db.query(`
       INSERT INTO call_logs (
         duty_id, employee_id, phone_number, provider_call_id, call_type, status, voice_message, started_at, created_at
-      ) VALUES (NULL, ?, ?, ?, 'test_call', ?, ?, ?, ?)
-    `);
-
-    const result = stmt.run(
+      ) VALUES (NULL, $1, $2, $3, 'test_call', $4, $5, $6, $7)
+      RETURNING *
+    `, [
       validEmployeeId,
       String(targetPhone).trim(),
       callResult.providerCallId || null,
@@ -186,9 +209,9 @@ router.post('/test', async (req, res) => {
       voiceMessageText,
       now,
       now
-    );
+    ]);
 
-    const createdLog = db.prepare('SELECT * FROM call_logs WHERE id = ?').get(result.lastInsertRowid);
+    const createdLog = insertRes.rows[0];
 
     broadcastUpdate('DATA_CHANGED', { action: 'TEST_CALL_DISPATCHED', callLog: createdLog });
 
@@ -208,17 +231,17 @@ router.post('/test', async (req, res) => {
 
     // Log failed attempt in call_logs table for audit trail
     try {
-      db.prepare(`
+      await db.query(`
         INSERT INTO call_logs (
           duty_id, employee_id, phone_number, provider_call_id, call_type, status, voice_message, started_at, created_at
-        ) VALUES (NULL, ?, ?, NULL, 'test_call', 'failed', ?, ?, ?)
-      `).run(
+        ) VALUES (NULL, $1, $2, NULL, 'test_call', 'failed', $3, $4, $5)
+      `, [
         validEmployeeId,
         String(targetPhone).trim(),
         `Error: ${error.message}`,
-        now,
-        now
-      );
+        getCurrentDateTimeString(),
+        getCurrentDateTimeString()
+      ]);
     } catch (dbErr) {
       console.error('[API] Failed to record call log error:', dbErr.message);
     }

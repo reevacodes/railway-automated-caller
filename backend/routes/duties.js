@@ -5,7 +5,7 @@ const { calculateReminderTime, getCurrentDateTimeString, getCurrentDateString } 
 const { broadcastUpdate } = require('../services/websocket');
 
 // GET duties (with filter support, e.g. date=today, employee_id, status)
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const { date, employee_id, reminder_status, limit = 100 } = req.query;
 
@@ -21,31 +21,36 @@ router.get('/', (req, res) => {
       WHERE 1=1
     `;
     const params = [];
+    let paramIndex = 1;
 
     if (date === 'today') {
       const todayStr = getCurrentDateString();
-      query += ' AND d.duty_date = ?';
+      query += ` AND d.duty_date = $${paramIndex}`;
       params.push(todayStr);
+      paramIndex++;
     } else if (date) {
-      query += ' AND d.duty_date = ?';
+      query += ` AND d.duty_date = $${paramIndex}`;
       params.push(date);
+      paramIndex++;
     }
 
     if (employee_id) {
-      query += ' AND d.employee_id = ?';
+      query += ` AND d.employee_id = $${paramIndex}`;
       params.push(employee_id);
+      paramIndex++;
     }
 
     if (reminder_status) {
-      query += ' AND d.reminder_status = ?';
+      query += ` AND d.reminder_status = $${paramIndex}`;
       params.push(reminder_status);
+      paramIndex++;
     }
 
-    query += ' ORDER BY d.duty_date DESC, d.reporting_time ASC LIMIT ?';
+    query += ` ORDER BY d.duty_date DESC, d.reporting_time ASC LIMIT $${paramIndex}`;
     params.push(parseInt(limit, 10));
 
-    const duties = db.prepare(query).all(...params);
-    res.json({ success: true, data: duties });
+    const result = await db.query(query, params);
+    res.json({ success: true, data: result.rows });
   } catch (error) {
     console.error('[API] Error fetching duties:', error);
     res.status(500).json({ success: false, error: 'Failed to fetch duties' });
@@ -53,26 +58,26 @@ router.get('/', (req, res) => {
 });
 
 // GET single duty
-router.get('/:id', (req, res) => {
+router.get('/:id', async (req, res) => {
   try {
-    const duty = db.prepare(`
+    const result = await db.query(`
       SELECT d.*, e.name as employee_name, e.phone_number as employee_phone, e.department as employee_department
       FROM duties d
       LEFT JOIN employees e ON d.employee_id = e.employee_id
-      WHERE d.id = ?
-    `).get(req.params.id);
+      WHERE d.id = $1
+    `, [parseInt(req.params.id, 10)]);
 
-    if (!duty) {
+    if (result.rows.length === 0) {
       return res.status(404).json({ success: false, error: 'Duty not found' });
     }
-    res.json({ success: true, data: duty });
+    res.json({ success: true, data: result.rows[0] });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
 // POST create duty (Automatically calculates reminder_time = reporting_time - 30 minutes)
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   try {
     const { employee_id, duty_date, reporting_time } = req.body;
 
@@ -84,8 +89,8 @@ router.post('/', (req, res) => {
     }
 
     // Verify employee exists
-    const employee = db.prepare('SELECT * FROM employees WHERE employee_id = ?').get(employee_id);
-    if (!employee) {
+    const empRes = await db.query('SELECT * FROM employees WHERE employee_id = $1', [employee_id]);
+    if (empRes.rows.length === 0) {
       return res.status(404).json({ success: false, error: `Employee '${employee_id}' not found.` });
     }
 
@@ -93,27 +98,30 @@ router.post('/', (req, res) => {
     const timeCalc = calculateReminderTime(duty_date, reporting_time);
     const now = getCurrentDateTimeString();
 
-    const stmt = db.prepare(`
+    const insertRes = await db.query(`
       INSERT INTO duties (
         employee_id, duty_date, reporting_time, reminder_time, reminder_status, call_status, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, 'Pending', 'Pending', ?, ?)
-    `);
-
-    const result = stmt.run(
+      ) VALUES ($1, $2, $3, $4, 'Pending', 'Pending', $5, $6)
+      RETURNING *
+    `, [
       employee_id,
       duty_date,
       timeCalc.reportingTimeFormatted,
       timeCalc.reminderDateTime,
       now,
       now
-    );
+    ]);
 
-    const createdDuty = db.prepare(`
+    const dutyId = insertRes.rows[0].id;
+
+    const createdRes = await db.query(`
       SELECT d.*, e.name as employee_name, e.phone_number as employee_phone, e.department as employee_department
       FROM duties d
       LEFT JOIN employees e ON d.employee_id = e.employee_id
-      WHERE d.id = ?
-    `).get(result.lastInsertRowid);
+      WHERE d.id = $1
+    `, [dutyId]);
+    
+    const createdDuty = createdRes.rows[0];
 
     console.log(`[API] Created duty for ${createdDuty.employee_name}: Reporting at ${createdDuty.reporting_time}, Reminder scheduled for ${createdDuty.reminder_time}`);
 
@@ -132,14 +140,16 @@ router.post('/', (req, res) => {
 });
 
 // PUT update duty
-router.put('/:id', (req, res) => {
+router.put('/:id', async (req, res) => {
   try {
     const { duty_date, reporting_time, reminder_status } = req.body;
-    const existing = db.prepare('SELECT * FROM duties WHERE id = ?').get(req.params.id);
+    const dutyId = parseInt(req.params.id, 10);
+    const existingRes = await db.query('SELECT * FROM duties WHERE id = $1', [dutyId]);
 
-    if (!existing) {
+    if (existingRes.rows.length === 0) {
       return res.status(404).json({ success: false, error: 'Duty not found' });
     }
+    const existing = existingRes.rows[0];
 
     const updatedDate = duty_date || existing.duty_date;
     const updatedReportingTime = reporting_time || existing.reporting_time;
@@ -157,20 +167,20 @@ router.put('/:id', (req, res) => {
 
     const now = getCurrentDateTimeString();
 
-    const stmt = db.prepare(`
+    await db.query(`
       UPDATE duties
-      SET duty_date = ?, reporting_time = ?, reminder_time = ?, reminder_status = ?, updated_at = ?
-      WHERE id = ?
-    `);
+      SET duty_date = $1, reporting_time = $2, reminder_time = $3, reminder_status = $4, updated_at = $5
+      WHERE id = $6
+    `, [updatedDate, reportingTimeFormatted, reminderDateTime, updatedStatus, now, dutyId]);
 
-    stmt.run(updatedDate, reportingTimeFormatted, reminderDateTime, updatedStatus, now, req.params.id);
-
-    const updated = db.prepare(`
+    const updatedRes = await db.query(`
       SELECT d.*, e.name as employee_name, e.phone_number as employee_phone, e.department as employee_department
       FROM duties d
       LEFT JOIN employees e ON d.employee_id = e.employee_id
-      WHERE d.id = ?
-    `).get(req.params.id);
+      WHERE d.id = $1
+    `, [dutyId]);
+
+    const updated = updatedRes.rows[0];
 
     broadcastUpdate('DATA_CHANGED', { action: 'DUTY_UPDATED', duty: updated });
 
@@ -181,17 +191,16 @@ router.put('/:id', (req, res) => {
 });
 
 // POST reset duty reminder status to 'Pending' (for testing)
-router.post('/:id/reset', (req, res) => {
+router.post('/:id/reset', async (req, res) => {
   try {
     const now = getCurrentDateTimeString();
-    const stmt = db.prepare(`
+    const result = await db.query(`
       UPDATE duties
-      SET reminder_status = 'Pending', call_status = 'Pending', updated_at = ?
-      WHERE id = ?
-    `);
-    const result = stmt.run(now, req.params.id);
+      SET reminder_status = 'Pending', call_status = 'Pending', updated_at = $1
+      WHERE id = $2
+    `, [now, parseInt(req.params.id, 10)]);
 
-    if (result.changes === 0) {
+    if (result.rowCount === 0) {
       return res.status(404).json({ success: false, error: 'Duty not found' });
     }
 
@@ -204,10 +213,10 @@ router.post('/:id/reset', (req, res) => {
 });
 
 // DELETE duty
-router.delete('/:id', (req, res) => {
+router.delete('/:id', async (req, res) => {
   try {
-    const result = db.prepare('DELETE FROM duties WHERE id = ?').run(req.params.id);
-    if (result.changes === 0) {
+    const result = await db.query('DELETE FROM duties WHERE id = $1', [parseInt(req.params.id, 10)]);
+    if (result.rowCount === 0) {
       return res.status(404).json({ success: false, error: 'Duty not found' });
     }
 

@@ -5,21 +5,24 @@ const { getCurrentDateTimeString } = require('../config/timezone');
 const { broadcastUpdate } = require('../services/websocket');
 
 // GET all employees
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const { search, department, active_only } = req.query;
     let query = 'SELECT * FROM employees WHERE 1=1';
     const params = [];
+    let paramIndex = 1;
 
     if (search) {
-      query += ' AND (name LIKE ? OR employee_id LIKE ? OR phone_number LIKE ?)';
+      query += ` AND (name ILIKE $${paramIndex} OR employee_id ILIKE $${paramIndex} OR phone_number ILIKE $${paramIndex})`;
       const term = `%${search}%`;
-      params.push(term, term, term);
+      params.push(term);
+      paramIndex++;
     }
 
     if (department) {
-      query += ' AND department = ?';
+      query += ` AND department = $${paramIndex}`;
       params.push(department);
+      paramIndex++;
     }
 
     if (active_only === 'true') {
@@ -28,8 +31,8 @@ router.get('/', (req, res) => {
 
     query += ' ORDER BY id DESC';
 
-    const employees = db.prepare(query).all(...params);
-    res.json({ success: true, data: employees });
+    const result = await db.query(query, params);
+    res.json({ success: true, data: result.rows });
   } catch (error) {
     console.error('[API] Error fetching employees:', error.message);
     res.status(500).json({ success: false, error: 'Failed to fetch employees' });
@@ -37,20 +40,29 @@ router.get('/', (req, res) => {
 });
 
 // GET single employee by ID
-router.get('/:id', (req, res) => {
+router.get('/:id', async (req, res) => {
   try {
-    const employee = db.prepare('SELECT * FROM employees WHERE id = ? OR employee_id = ?').get(req.params.id, req.params.id);
-    if (!employee) {
+    // Determine if it's an integer ID or a string employee_id
+    const isInt = !isNaN(parseInt(req.params.id, 10));
+    
+    let result;
+    if (isInt) {
+      result = await db.query('SELECT * FROM employees WHERE id = $1 OR employee_id = $2', [parseInt(req.params.id, 10), req.params.id]);
+    } else {
+      result = await db.query('SELECT * FROM employees WHERE employee_id = $1', [req.params.id]);
+    }
+
+    if (result.rows.length === 0) {
       return res.status(404).json({ success: false, error: 'Employee not found' });
     }
-    res.json({ success: true, data: employee });
+    res.json({ success: true, data: result.rows[0] });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
 // POST create employee
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   try {
     const { employee_id, name, phone_number, department, is_active = 1 } = req.body;
 
@@ -62,21 +74,20 @@ router.post('/', (req, res) => {
     }
 
     // Check for duplicate employee_id
-    const existing = db.prepare('SELECT id FROM employees WHERE employee_id = ?').get(employee_id);
-    if (existing) {
+    const existing = await db.query('SELECT id FROM employees WHERE employee_id = $1', [employee_id]);
+    if (existing.rows.length > 0) {
       return res.status(400).json({ success: false, error: `Employee ID '${employee_id}' already exists.` });
     }
 
     const now = getCurrentDateTimeString();
 
-    const stmt = db.prepare(`
+    const insertResult = await db.query(`
       INSERT INTO employees (employee_id, name, phone_number, department, is_active, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `);
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      RETURNING *
+    `, [employee_id.trim(), name.trim(), phone_number.trim(), department.trim(), is_active ? 1 : 0, now, now]);
 
-    const result = stmt.run(employee_id.trim(), name.trim(), phone_number.trim(), department.trim(), is_active ? 1 : 0, now, now);
-
-    const newEmployee = db.prepare('SELECT * FROM employees WHERE id = ?').get(result.lastInsertRowid);
+    const newEmployee = insertResult.rows[0];
     console.log(`[API] Created employee: ${newEmployee.name} (${newEmployee.employee_id})`);
 
     broadcastUpdate('DATA_CHANGED', { action: 'EMPLOYEE_CREATED', employee: newEmployee });
@@ -89,15 +100,23 @@ router.post('/', (req, res) => {
 });
 
 // PUT update employee
-router.put('/:id', (req, res) => {
+router.put('/:id', async (req, res) => {
   try {
     const { name, phone_number, department, is_active } = req.body;
     const empId = req.params.id;
+    const isInt = !isNaN(parseInt(empId, 10));
 
-    const existing = db.prepare('SELECT * FROM employees WHERE id = ? OR employee_id = ?').get(empId, empId);
-    if (!existing) {
+    let existingRes;
+    if (isInt) {
+      existingRes = await db.query('SELECT * FROM employees WHERE id = $1 OR employee_id = $2', [parseInt(empId, 10), empId]);
+    } else {
+      existingRes = await db.query('SELECT * FROM employees WHERE employee_id = $1', [empId]);
+    }
+
+    if (existingRes.rows.length === 0) {
       return res.status(404).json({ success: false, error: 'Employee not found' });
     }
+    const existing = existingRes.rows[0];
 
     const now = getCurrentDateTimeString();
 
@@ -106,15 +125,18 @@ router.put('/:id', (req, res) => {
     const updatedDept = department !== undefined ? department.trim() : existing.department;
     const updatedActive = is_active !== undefined ? (is_active ? 1 : 0) : existing.is_active;
 
-    const stmt = db.prepare(`
+    const updateRes = await db.query(`
       UPDATE employees
-      SET name = ?, phone_number = ?, department = ?, is_active = ?, updated_at = ?
-      WHERE id = ?
-    `);
+      SET name = $1, phone_number = $2, department = $3, is_active = $4, updated_at = $5
+      WHERE id = $6
+      RETURNING *
+    `, [updatedName, updatedPhone, updatedDept, updatedActive, now, existing.id]);
 
-    stmt.run(updatedName, updatedPhone, updatedDept, updatedActive, now, existing.id);
+    if (updateRes.rowCount === 0) {
+      return res.status(500).json({ success: false, error: 'Database update failed: No rows were modified in PostgreSQL.' });
+    }
 
-    const updated = db.prepare('SELECT * FROM employees WHERE id = ?').get(existing.id);
+    const updated = updateRes.rows[0];
 
     broadcastUpdate('DATA_CHANGED', { action: 'EMPLOYEE_UPDATED', employee: updated });
 
@@ -125,15 +147,24 @@ router.put('/:id', (req, res) => {
 });
 
 // DELETE employee
-router.delete('/:id', (req, res) => {
+router.delete('/:id', async (req, res) => {
   try {
     const empId = req.params.id;
-    const existing = db.prepare('SELECT * FROM employees WHERE id = ? OR employee_id = ?').get(empId, empId);
-    if (!existing) {
-      return res.status(404).json({ success: false, error: 'Employee not found' });
+    const isInt = !isNaN(parseInt(empId, 10));
+
+    let existingRes;
+    if (isInt) {
+      existingRes = await db.query('SELECT * FROM employees WHERE id = $1 OR employee_id = $2', [parseInt(empId, 10), empId]);
+    } else {
+      existingRes = await db.query('SELECT * FROM employees WHERE employee_id = $1', [empId]);
     }
 
-    db.prepare('DELETE FROM employees WHERE id = ?').run(existing.id);
+    if (existingRes.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Employee not found' });
+    }
+    const existing = existingRes.rows[0];
+
+    await db.query('DELETE FROM employees WHERE id = $1', [existing.id]);
     console.log(`[API] Deleted employee: ${existing.name} (${existing.employee_id})`);
 
     broadcastUpdate('DATA_CHANGED', { action: 'EMPLOYEE_DELETED', id: existing.id });

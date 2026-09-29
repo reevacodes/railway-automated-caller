@@ -38,7 +38,7 @@ router.all('/exoml', (req, res) => {
  * Exoml Response handler for DTMF Keypress (Press 1 / Press 2)
  * POST or GET /api/webhooks/exoml/response
  */
-router.all('/exoml/response', (req, res) => {
+router.all('/exoml/response', async (req, res) => {
   try {
     const digits = (req.body && req.body.Digits) || (req.query && req.query.Digits) || 
                    (req.body && req.body.digits) || (req.query && req.query.digits) || '';
@@ -67,37 +67,39 @@ router.all('/exoml/response', (req, res) => {
     }
 
     if (callSid) {
-      const callLog = db.prepare('SELECT * FROM call_logs WHERE provider_call_id = ?').get(callSid);
-      if (callLog) {
-        db.prepare(`
+      const callLogRes = await db.query('SELECT * FROM call_logs WHERE provider_call_id = $1', [callSid]);
+      if (callLogRes.rows.length > 0) {
+        const callLog = callLogRes.rows[0];
+        await db.query(`
           UPDATE call_logs
-          SET dtmf_input = ?, confirmation_status = ?, status = 'completed', ended_at = ?
-          WHERE id = ?
-        `).run(digits || 'none', confirmationStatus, now, callLog.id);
+          SET dtmf_input = $1, confirmation_status = $2, status = 'completed', ended_at = $3
+          WHERE id = $4
+        `, [digits || 'none', confirmationStatus, now, callLog.id]);
 
         if (callLog.duty_id) {
-          db.prepare(`
+          await db.query(`
             UPDATE duties
-            SET reminder_status = ?, call_status = 'Completed', confirmation_time = ?, next_retry_at = NULL, updated_at = ?
-            WHERE id = ?
-          `).run(dutyStatus, now, now, callLog.duty_id);
+            SET reminder_status = $1, call_status = 'Completed', confirmation_time = $2, next_retry_at = NULL, updated_at = $3
+            WHERE id = $4
+          `, [dutyStatus, now, now, callLog.duty_id]);
         }
       }
     } else {
-      const latestLog = db.prepare('SELECT * FROM call_logs ORDER BY id DESC LIMIT 1').get();
-      if (latestLog) {
-        db.prepare(`
+      const latestLogRes = await db.query('SELECT * FROM call_logs ORDER BY id DESC LIMIT 1');
+      if (latestLogRes.rows.length > 0) {
+        const latestLog = latestLogRes.rows[0];
+        await db.query(`
           UPDATE call_logs
-          SET dtmf_input = ?, confirmation_status = ?, status = 'completed', ended_at = ?
-          WHERE id = ?
-        `).run(digits || '1', confirmationStatus, now, latestLog.id);
+          SET dtmf_input = $1, confirmation_status = $2, status = 'completed', ended_at = $3
+          WHERE id = $4
+        `, [digits || '1', confirmationStatus, now, latestLog.id]);
 
         if (latestLog.duty_id) {
-          db.prepare(`
+          await db.query(`
             UPDATE duties
-            SET reminder_status = ?, call_status = 'Completed', confirmation_time = ?, next_retry_at = NULL, updated_at = ?
-            WHERE id = ?
-          `).run(dutyStatus, now, now, latestLog.duty_id);
+            SET reminder_status = $1, call_status = 'Completed', confirmation_time = $2, next_retry_at = NULL, updated_at = $3
+            WHERE id = $4
+          `, [dutyStatus, now, now, latestLog.duty_id]);
         }
       }
     }
@@ -123,18 +125,24 @@ router.all('/exoml/response', (req, res) => {
  * POST /api/webhooks/dtmf-simulate
  * Explicit endpoint for testing/simulating DTMF keypress input (e.g. Press 1 / Press 2)
  */
-router.post('/dtmf-simulate', (req, res) => {
+router.post('/dtmf-simulate', async (req, res) => {
   try {
     const { call_log_id, duty_id, digits = '1' } = req.body;
     const now = getCurrentDateTimeString();
 
     let targetLog = null;
+    let targetLogRes;
+    
     if (call_log_id) {
-      targetLog = db.prepare('SELECT * FROM call_logs WHERE id = ?').get(call_log_id);
+      targetLogRes = await db.query('SELECT * FROM call_logs WHERE id = $1', [parseInt(call_log_id, 10)]);
     } else if (duty_id) {
-      targetLog = db.prepare('SELECT * FROM call_logs WHERE duty_id = ? ORDER BY id DESC LIMIT 1').get(duty_id);
+      targetLogRes = await db.query('SELECT * FROM call_logs WHERE duty_id = $1 ORDER BY id DESC LIMIT 1', [parseInt(duty_id, 10)]);
     } else {
-      targetLog = db.prepare('SELECT * FROM call_logs ORDER BY id DESC LIMIT 1').get();
+      targetLogRes = await db.query('SELECT * FROM call_logs ORDER BY id DESC LIMIT 1');
+    }
+
+    if (targetLogRes.rows.length > 0) {
+      targetLog = targetLogRes.rows[0];
     }
 
     if (!targetLog) {
@@ -155,21 +163,22 @@ router.post('/dtmf-simulate', (req, res) => {
       dutyStatus = "Responded";
     }
 
-    db.prepare(`
+    await db.query(`
       UPDATE call_logs
-      SET dtmf_input = ?, confirmation_status = ?, status = 'completed', ended_at = ?
-      WHERE id = ?
-    `).run(String(digits), confirmationStatus, now, targetLog.id);
+      SET dtmf_input = $1, confirmation_status = $2, status = 'completed', ended_at = $3
+      WHERE id = $4
+    `, [String(digits), confirmationStatus, now, targetLog.id]);
 
     if (targetLog.duty_id) {
-      db.prepare(`
+      await db.query(`
         UPDATE duties
-        SET reminder_status = ?, call_status = 'Completed', confirmation_time = ?, updated_at = ?
-        WHERE id = ?
-      `).run(dutyStatus, now, now, targetLog.duty_id);
+        SET reminder_status = $1, call_status = 'Completed', confirmation_time = $2, updated_at = $3
+        WHERE id = $4
+      `, [dutyStatus, now, now, targetLog.duty_id]);
     }
 
-    const updatedLog = db.prepare('SELECT * FROM call_logs WHERE id = ?').get(targetLog.id);
+    const updatedLogRes = await db.query('SELECT * FROM call_logs WHERE id = $1', [targetLog.id]);
+    const updatedLog = updatedLogRes.rows[0];
 
     broadcastUpdate('DATA_CHANGED', { source: 'DTMF_SIMULATE', digits, dutyStatus });
 
@@ -188,7 +197,7 @@ router.post('/dtmf-simulate', (req, res) => {
  * Exotel Webhook status callback receiver
  * POST /api/webhooks/exotel
  */
-router.post('/exotel', (req, res) => {
+router.post('/exotel', async (req, res) => {
   try {
     const payload = req.body || {};
     console.log('[Webhook:Exotel] Received callback payload:', JSON.stringify(payload));
@@ -219,9 +228,10 @@ router.post('/exotel', (req, res) => {
       return res.status(200).json({ success: true, warning: 'No CallSid provided' });
     }
 
-    const existingLog = db.prepare('SELECT * FROM call_logs WHERE provider_call_id = ?').get(providerCallId);
+    const existingLogRes = await db.query('SELECT * FROM call_logs WHERE provider_call_id = $1', [providerCallId]);
 
-    if (existingLog) {
+    if (existingLogRes.rows.length > 0) {
+      const existingLog = existingLogRes.rows[0];
       let dtmfInput = existingLog.dtmf_input || digits || null;
       let confirmationStatus = existingLog.confirmation_status || null;
       let reminderStatusFinal = existingLog.duty_id ? 'Calling' : null;
@@ -242,15 +252,16 @@ router.post('/exotel', (req, res) => {
         reminderStatusFinal = 'Failed';
       }
 
-      const updateStmt = db.prepare(`
+      await db.query(`
         UPDATE call_logs
-        SET status = ?, duration = ?, ended_at = ?, dtmf_input = ?, confirmation_status = ?
-        WHERE id = ?
-      `);
-      updateStmt.run(mappedStatus, duration, now, dtmfInput, confirmationStatus, existingLog.id);
+        SET status = $1, duration = $2, ended_at = $3, dtmf_input = $4, confirmation_status = $5
+        WHERE id = $6
+      `, [mappedStatus, duration, now, dtmfInput, confirmationStatus, existingLog.id]);
 
       if (existingLog.duty_id) {
-        const duty = db.prepare('SELECT * FROM duties WHERE id = ?').get(existingLog.duty_id);
+        const dutyRes = await db.query('SELECT * FROM duties WHERE id = $1', [existingLog.duty_id]);
+        const duty = dutyRes.rows.length > 0 ? dutyRes.rows[0] : null;
+        
         const { DateTime } = require('luxon');
         const nextRetryDt = DateTime.now().setZone('Asia/Kolkata').plus({ minutes: 5 }).toFormat('yyyy-MM-dd HH:mm:ss');
         const isUnanswered = ['no-answer', 'busy', 'failed'].includes(mappedStatus);
@@ -270,11 +281,11 @@ router.post('/exotel', (req, res) => {
           }
         }
 
-        db.prepare(`
+        await db.query(`
           UPDATE duties
-          SET call_status = ?, reminder_status = ?, next_retry_at = ?, updated_at = ?
-          WHERE id = ?
-        `).run(mappedStatus, finalReminderStatus, calcNextRetry, now, existingLog.duty_id);
+          SET call_status = $1, reminder_status = $2, next_retry_at = $3, updated_at = $4
+          WHERE id = $5
+        `, [mappedStatus, finalReminderStatus, calcNextRetry, now, existingLog.duty_id]);
       }
 
       console.log(`[Webhook:Exotel] Updated Call Log #${existingLog.id} (CallSid: ${providerCallId}) to status '${mappedStatus}', DTMF: '${dtmfInput}'`);
