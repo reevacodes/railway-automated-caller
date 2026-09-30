@@ -278,7 +278,7 @@ export default function Duties() {
                 <label key={d.key} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', fontSize: '0.9rem', color: 'var(--text-dark)', userSelect: 'none' }}>
                   <div style={{ 
                     width: '18px', height: '18px', borderRadius: '4px', 
-                    border: \`1px solid \${days[d.key] ? '#3b82f6' : 'var(--border-light)'}\`,
+                    border: `1px solid ${days[d.key] ? '#3b82f6' : 'var(--border-light)'}`,
                     backgroundColor: days[d.key] ? '#3b82f6' : 'transparent',
                     display: 'flex', alignItems: 'center', justifyContent: 'center'
                   }}>
@@ -351,8 +351,8 @@ export default function Duties() {
                   </td>
                   <td><span style={{ fontWeight: 600, color: 'var(--railway-navy)' }}>{d.reporting_time}</span></td>
                   <td><span style={{ fontWeight: 600, color: '#b45309' }}>{d.reminder_time}</span></td>
-                  <td><span className={\`badge-status status-\${(d.reminder_status || 'pending').toLowerCase()}\`}>{d.reminder_status}</span></td>
-                  <td><span className={\`badge-status status-\${(d.call_status || 'pending').toLowerCase()}\`}>{d.call_status}</span></td>
+                  <td><span className={`badge-status status-${(d.reminder_status || 'pending').toLowerCase()}`}>{d.reminder_status}</span></td>
+                  <td><span className={`badge-status status-${(d.call_status || 'pending').toLowerCase()}`}>{d.call_status}</span></td>
                   <td>
                     <div style={{ display: 'flex', gap: '0.4rem' }}>
                       <button className="btn btn-sm btn-secondary" onClick={() => handleResetStatus(d.id)} title="Reset reminder to Pending">Reset</button>
