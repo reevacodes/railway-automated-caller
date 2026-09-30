@@ -66,6 +66,22 @@ export const resetDutyStatus = async (id) => {
   return res.data;
 };
 
+// Schedules
+export const getSchedules = async () => {
+  const res = await api.get('/schedules');
+  return res.data;
+};
+
+export const getScheduleByEmployee = async (employeeId) => {
+  const res = await api.get(`/schedules/${employeeId}`);
+  return res.data;
+};
+
+export const saveSchedule = async (scheduleData) => {
+  const res = await api.post('/schedules', scheduleData);
+  return res.data;
+};
+
 // Calls & Test Call
 export const getCallLogs = async (params = {}) => {
   const res = await api.get('/calls', { params });

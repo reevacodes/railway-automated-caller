@@ -59,6 +59,23 @@ async function initDatabase() {
 
       CREATE INDEX IF NOT EXISTS idx_duties_date_status ON duties (duty_date, reminder_status);
       CREATE INDEX IF NOT EXISTS idx_call_logs_provider ON call_logs (provider_call_id);
+
+      CREATE TABLE IF NOT EXISTS employee_schedules (
+        id SERIAL PRIMARY KEY,
+        employee_id TEXT UNIQUE NOT NULL,
+        monday BOOLEAN DEFAULT false,
+        tuesday BOOLEAN DEFAULT false,
+        wednesday BOOLEAN DEFAULT false,
+        thursday BOOLEAN DEFAULT false,
+        friday BOOLEAN DEFAULT false,
+        saturday BOOLEAN DEFAULT false,
+        sunday BOOLEAN DEFAULT false,
+        reporting_time TEXT NOT NULL,
+        is_active BOOLEAN DEFAULT true,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY (employee_id) REFERENCES employees(employee_id) ON DELETE CASCADE
+      );
     `);
 
     // Seed default dummy employees if empty (approx 8-10 normal employees)

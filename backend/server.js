@@ -8,6 +8,7 @@ const employeesRouter = require('./routes/employees');
 const dutiesRouter = require('./routes/duties');
 const callsRouter = require('./routes/calls');
 const webhooksRouter = require('./routes/webhooks');
+const schedulesRouter = require('./routes/schedules');
 const { initScheduler } = require('./scheduler/reminderScheduler');
 const { getCurrentDateTimeString, TIMEZONE } = require('./config/timezone');
 const telephonyService = require('./services/telephony/telephonyService');
@@ -40,6 +41,7 @@ app.use('/api/employees', employeesRouter);
 app.use('/api/duties', dutiesRouter);
 app.use('/api/calls', callsRouter);
 app.use('/api/webhooks', webhooksRouter);
+app.use('/api/schedules', schedulesRouter);
 
 // System Status Endpoint
 app.get('/api/system/info', (req, res) => {

@@ -27,6 +27,7 @@ function initScheduler() {
     if (isRunning) return;
     isRunning = true;
     try {
+      await generateDutiesFromSchedules();
       await processPendingReminders();
     } catch (err) {
       console.error('[Scheduler] Error during reminder processing cycle:', err.message);
@@ -196,9 +197,66 @@ async function processSingleDutyReminder(duty, isRetry = false) {
   }
 }
 
+/**
+ * Generate duty instances from active weekly employee schedules.
+ */
+async function generateDutiesFromSchedules() {
+  const { DateTime } = require('luxon');
+  const { calculateReminderTime } = require('../config/timezone');
+  
+  const now = DateTime.now().setZone('Asia/Kolkata');
+  const todayDateStr = now.toFormat('yyyy-MM-dd');
+  const todayWeekday = now.weekdayLong.toLowerCase(); // 'monday', 'tuesday', etc.
+
+  try {
+    // 1. Get active schedules where today is selected
+    const schedulesRes = await db.query(`
+      SELECT s.*, e.is_active as employee_active
+      FROM employee_schedules s
+      JOIN employees e ON s.employee_id = e.employee_id
+      WHERE s.is_active = true AND s.${todayWeekday} = true AND e.is_active = 1
+    `);
+
+    for (const schedule of schedulesRes.rows) {
+      // 2. Check if a duty for this employee already exists for today
+      // This prevents duplicate generation.
+      const checkRes = await db.query(
+        'SELECT id FROM duties WHERE employee_id = $1 AND duty_date = $2',
+        [schedule.employee_id, todayDateStr]
+      );
+
+      if (checkRes.rows.length === 0) {
+        // 3. Generate it!
+        // We use calculateReminderTime to perfectly format the times exactly like manual generation.
+        const timeCalc = calculateReminderTime(todayDateStr, schedule.reporting_time);
+        const nowStr = getCurrentDateTimeString();
+
+        const insertRes = await db.query(`
+          INSERT INTO duties (
+            employee_id, duty_date, reporting_time, reminder_time, reminder_status, call_status, created_at, updated_at
+          ) VALUES ($1, $2, $3, $4, 'Pending', 'Pending', $5, $6)
+          RETURNING id
+        `, [
+          schedule.employee_id,
+          todayDateStr,
+          timeCalc.reportingTimeFormatted,
+          timeCalc.reminderDateTime,
+          nowStr,
+          nowStr
+        ]);
+
+        console.log(`[Scheduler] Auto-generated weekly duty #${insertRes.rows[0].id} for ${schedule.employee_id} on ${todayDateStr}`);
+      }
+    }
+  } catch (err) {
+    console.error('[Scheduler] Error auto-generating duties from schedules:', err.message);
+  }
+}
+
 module.exports = {
   initScheduler,
   setSchedulerEnabled,
   getSchedulerStatus,
-  processPendingReminders
+  processPendingReminders,
+  generateDutiesFromSchedules
 };
