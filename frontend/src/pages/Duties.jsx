@@ -158,6 +158,10 @@ export default function Duties() {
           ...prev.filter(d => d.id !== res.data.id)
         ]);
 
+        // Keep the employee that was just assigned selected.
+        // This prevents the dropdown from jumping back to the first employee.
+        setSelectedEmpId(res.data.employee_id);
+
         loadData();
       } else {
         setFormError(res.error || 'Failed to create duty');
