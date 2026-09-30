@@ -92,13 +92,16 @@ async function initDatabase() {
   }
 
   try {
-    // 3. Create unique index for ON CONFLICT clause
+    // 3. Create unique index for ON CONFLICT clause on (employee_id, duty_date, reporting_time)
+    // This preserves multiple historical duties per day if they have different reporting times
+    // while still preventing duplicate scheduler-generated entries for the same slot.
     await pool.query(`
-      CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_duties_emp_date ON duties (employee_id, duty_date);
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_duties_emp_date_time
+      ON duties (employee_id, duty_date, reporting_time);
     `);
-    console.log('[DB] unique duties index ready');
+    console.log('[DB] unique duties index ready (employee_id, duty_date, reporting_time)');
   } catch (err) {
-    console.warn('[DB] Warning: Could not create unique duties index (possibly due to existing duplicates):', err.message);
+    console.warn('[DB] Warning: Could not create unique duties index:', err.message);
   }
 
   try {

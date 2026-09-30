@@ -228,7 +228,7 @@ async function generateDutiesFromSchedules() {
         INSERT INTO duties (
           employee_id, duty_date, reporting_time, reminder_time, reminder_status, call_status, created_at, updated_at
         ) VALUES ($1, $2, $3, $4, 'Pending', 'Pending', $5, $6)
-        ON CONFLICT (employee_id, duty_date) DO NOTHING
+        ON CONFLICT (employee_id, duty_date, reporting_time) DO NOTHING
         RETURNING id
       `, [
         schedule.employee_id,
