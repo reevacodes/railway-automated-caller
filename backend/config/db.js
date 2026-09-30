@@ -9,6 +9,7 @@ const pool = new Pool({
 
 async function initDatabase() {
   try {
+    // 1. Create Tables
     await pool.query(`
       CREATE TABLE IF NOT EXISTS employees (
         id SERIAL PRIMARY KEY,
@@ -57,10 +58,6 @@ async function initDatabase() {
         FOREIGN KEY (employee_id) REFERENCES employees(employee_id) ON DELETE CASCADE
       );
 
-      CREATE INDEX IF NOT EXISTS idx_duties_date_status ON duties (duty_date, reminder_status);
-      CREATE INDEX IF NOT EXISTS idx_call_logs_provider ON call_logs (provider_call_id);
-      CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_duties_emp_date ON duties (employee_id, duty_date);
-
       CREATE TABLE IF NOT EXISTS employee_schedules (
         id SERIAL PRIMARY KEY,
         employee_id TEXT UNIQUE NOT NULL,
@@ -78,8 +75,34 @@ async function initDatabase() {
         FOREIGN KEY (employee_id) REFERENCES employees(employee_id) ON DELETE CASCADE
       );
     `);
+    console.log('[DB] Core tables created/verified successfully.');
+    console.log('[DB] employee_schedules table ready');
+  } catch (err) {
+    console.error('[DB] Error creating tables:', err.message);
+  }
 
-    // Seed default dummy employees if empty (approx 8-10 normal employees)
+  try {
+    // 2. Create basic indexes
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_duties_date_status ON duties (duty_date, reminder_status);
+      CREATE INDEX IF NOT EXISTS idx_call_logs_provider ON call_logs (provider_call_id);
+    `);
+  } catch (err) {
+    console.error('[DB] Error creating basic indexes:', err.message);
+  }
+
+  try {
+    // 3. Create unique index for ON CONFLICT clause
+    await pool.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_duties_emp_date ON duties (employee_id, duty_date);
+    `);
+    console.log('[DB] unique duties index ready');
+  } catch (err) {
+    console.warn('[DB] Warning: Could not create unique duties index (possibly due to existing duplicates):', err.message);
+  }
+
+  try {
+    // 4. Seed default dummy employees if empty
     const countRes = await pool.query('SELECT COUNT(*) as count FROM employees');
     const count = parseInt(countRes.rows[0].count, 10);
 
@@ -109,7 +132,7 @@ async function initDatabase() {
       console.log('[DB] Seeded 8 dummy employees successfully.');
     }
   } catch (err) {
-    console.error('[DB] Initialization error:', err);
+    console.error('[DB] Seeding error:', err.message);
   }
 }
 
