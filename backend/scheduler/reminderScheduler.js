@@ -218,33 +218,28 @@ async function generateDutiesFromSchedules() {
     `);
 
     for (const schedule of schedulesRes.rows) {
-      // 2. Check if a duty for this employee already exists for today
-      // This prevents duplicate generation.
-      const checkRes = await db.query(
-        'SELECT id FROM duties WHERE employee_id = $1 AND duty_date = $2',
-        [schedule.employee_id, todayDateStr]
-      );
+      // 2. Generate it! We use calculateReminderTime to precisely format the times.
+      // We rely on PostgreSQL's atomic ON CONFLICT DO NOTHING to prevent duplicate generation
+      // and safely ignore manually created duties or duplicate scheduler ticks.
+      const timeCalc = calculateReminderTime(todayDateStr, schedule.reporting_time);
+      const nowStr = getCurrentDateTimeString();
 
-      if (checkRes.rows.length === 0) {
-        // 3. Generate it!
-        // We use calculateReminderTime to perfectly format the times exactly like manual generation.
-        const timeCalc = calculateReminderTime(todayDateStr, schedule.reporting_time);
-        const nowStr = getCurrentDateTimeString();
+      const insertRes = await db.query(`
+        INSERT INTO duties (
+          employee_id, duty_date, reporting_time, reminder_time, reminder_status, call_status, created_at, updated_at
+        ) VALUES ($1, $2, $3, $4, 'Pending', 'Pending', $5, $6)
+        ON CONFLICT (employee_id, duty_date) DO NOTHING
+        RETURNING id
+      `, [
+        schedule.employee_id,
+        todayDateStr,
+        timeCalc.reportingTimeFormatted,
+        timeCalc.reminderDateTime,
+        nowStr,
+        nowStr
+      ]);
 
-        const insertRes = await db.query(`
-          INSERT INTO duties (
-            employee_id, duty_date, reporting_time, reminder_time, reminder_status, call_status, created_at, updated_at
-          ) VALUES ($1, $2, $3, $4, 'Pending', 'Pending', $5, $6)
-          RETURNING id
-        `, [
-          schedule.employee_id,
-          todayDateStr,
-          timeCalc.reportingTimeFormatted,
-          timeCalc.reminderDateTime,
-          nowStr,
-          nowStr
-        ]);
-
+      if (insertRes.rows.length > 0) {
         console.log(`[Scheduler] Auto-generated weekly duty #${insertRes.rows[0].id} for ${schedule.employee_id} on ${todayDateStr}`);
       }
     }

@@ -59,6 +59,7 @@ async function initDatabase() {
 
       CREATE INDEX IF NOT EXISTS idx_duties_date_status ON duties (duty_date, reminder_status);
       CREATE INDEX IF NOT EXISTS idx_call_logs_provider ON call_logs (provider_call_id);
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_duties_emp_date ON duties (employee_id, duty_date);
 
       CREATE TABLE IF NOT EXISTS employee_schedules (
         id SERIAL PRIMARY KEY,
